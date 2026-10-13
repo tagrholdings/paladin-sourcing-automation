@@ -4,7 +4,7 @@ const { alreadyProcessed, markProcessed } = require('../lib/idempotency');
 const { classifyMessage } = require('../services/classifier');
 const { routeLead } = require('../services/routingMatrix');
 const { lookupContact } = require('../services/contactLookup');
-const { notifyLead, notifyError } = require('../services/telegram');
+const { notifyLead, notifyError } = require('../services/slack');
 
 const router = express.Router();
 

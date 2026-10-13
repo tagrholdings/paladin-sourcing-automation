@@ -5,8 +5,7 @@ const webhookRouter = require('./routes/webhook');
 const REQUIRED_ENV = [
   'PALADIN_WEBHOOK_SECRET',
   'OPENAI_API_KEY',
-  'TELEGRAM_BOT_TOKEN',
-  'TELEGRAM_CHAT_ID',
+  'SLACK_WEBHOOK_URL',
 ];
 
 const missing = REQUIRED_ENV.filter((key) => !process.env[key]);

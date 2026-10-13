@@ -6,7 +6,7 @@
  *
  * Ate confirmarmos se existe uma API de contatos (pergunta enviada ao
  * suporte da Paladin), esta funcao nao inventa dados. Ela retorna
- * tudo como null/desconhecido, e o restante do sistema (telegram.js,
+ * tudo como null/desconhecido, e o restante do sistema (slack.js,
  * routingMatrix.js) sabe lidar com isso mostrando um aviso em vez de
  * fingir que tem a informacao.
  *

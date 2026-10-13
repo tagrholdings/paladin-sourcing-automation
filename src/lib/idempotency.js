@@ -5,7 +5,7 @@
  * Railway reiniciar a instancia (deploy, crash, sleep), o historico
  * zera. Para o volume de uma automacao de leads isso e aceitavel no
  * MVP: na pior hipotese, uma retentativa do Paladin apos um restart
- * gera uma notificacao duplicada no Telegram, nunca uma perdida.
+ * gera uma notificacao duplicada no Slack, nunca uma perdida.
  * Se precisar de garantia forte, trocar por Redis ou uma tabela no
  * banco (ex.: Postgres do proprio Railway).
  */

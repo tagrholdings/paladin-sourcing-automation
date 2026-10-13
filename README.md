@@ -2,7 +2,7 @@
 
 Escuta as respostas recebidas no Paladin Sourcing via webhook, classifica cada
 uma com IA (positiva / silenciosa / precisa de atenção), tenta sugerir o
-advisor da Menlo pela matriz de roteamento, e avisa no Telegram só quando
+advisor da Menlo pela matriz de roteamento, e avisa no Slack só quando
 vale a pena olhar.
 
 ## ⚠️ Antes de tudo: segurança
@@ -23,7 +23,7 @@ Nenhuma credencial deve estar no código. Tudo vem de variáveis de ambiente
 - Classifica a mensagem com IA em `positive`, `silent` ou `attention`.
 - Para `positive`/`attention`, tenta sugerir um advisor pela matriz de
   roteamento da Menlo (quando a localização do lead é conhecida).
-- Manda uma notificação formatada no Telegram só para `positive` e
+- Manda uma notificação formatada no Slack só para `positive` e
   `attention` — `silent` só é logado.
 - Sugere um rascunho de resposta (você ainda entra no CRM do Paladin e
   envia manualmente).
@@ -34,7 +34,7 @@ Nenhuma credencial deve estar no código. Tudo vem de variáveis de ambiente
   responde manualmente no CRM.
 - **Não verifica a "regra zero" no Pipedrive automaticamente.** Não há
   integração com o Pipedrive neste projeto ainda. Toda notificação do
-  Telegram inclui um lembrete para você conferir isso manualmente.
+  Slack inclui um lembrete para você conferir isso manualmente.
 - **Não sabe o nome/cidade/estado do contato com certeza.** O payload do
   webhook só traz `contactId`, telefone e texto — não traz dados
   cadastrais. Até confirmarmos com o suporte da Paladin se existe uma API
@@ -93,19 +93,23 @@ caso é a sequência do rodízio ficar um pouco desbalanceada).
 4. Use o botão de teste (ícone de tubo de ensaio) para confirmar que o
    endpoint responde `200 OK`.
 
-## Criando o bot do Telegram
+## Criando o Incoming Webhook do Slack
 
-1. Abra o Telegram, procure **@BotFather**, mande `/newbot` e siga as
-   instruções (nome + username terminando em "bot").
-2. O BotFather te dá um token — isso é `TELEGRAM_BOT_TOKEN`.
-3. Abra uma conversa com o seu bot recém-criado e mande qualquer mensagem
-   (ex.: "oi") — isso é necessário para o Telegram permitir que o bot te
-   notifique.
-4. Para descobrir seu `TELEGRAM_CHAT_ID`: acesse, no navegador, com o token
-   já preenchido:
-   `https://api.telegram.org/bot<SEU_TOKEN>/getUpdates`
-   depois de mandar a mensagem no passo 3. Procure por `"chat":{"id": ...}`
-   na resposta — esse número é o seu `TELEGRAM_CHAT_ID`.
+1. Acesse **api.slack.com/apps → Create New App → From scratch** (ou
+   "Blank app"), escolha um nome (ex.: "Menlo Leads Bot") e o workspace.
+2. No menu lateral do app, abra **Incoming Webhooks** e ative o toggle.
+3. Clique em **Add New Webhook to Workspace** e escolha o canal onde as
+   notificações devem cair (ex.: `#leads-menlo`, ou uma DM sua).
+4. Copie a URL gerada (formato
+   `https://hooks.slack.com/services/XXXXX/YYYYY/ZZZZZ`) e coloque em
+   `SLACK_WEBHOOK_URL` nas Variables do Railway.
+
+Custo: o plano gratuito do Slack permite até 10 apps instalados, o que
+cobre esse uso tranquilamente — não há cobrança por mensagem recebida via
+webhook.
+
+Se o workspace for de uma organização (não pessoal), a criação do app pode
+pedir aprovação de um administrador do workspace.
 
 ## Estrutura do projeto
 
@@ -118,7 +122,7 @@ src/
   services/classifier.js    # classificação via OpenAI
   services/routingMatrix.js # matriz de roteamento da Menlo
   services/contactLookup.js # placeholder — dados do contato (nome/cidade/estado)
-  services/telegram.js      # envio das notificações
+  services/slack.js         # envio das notificações
 data/
   az-rotation-counter.json  # gerado em runtime, não versionado
 ```
