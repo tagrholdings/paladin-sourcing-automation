@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.local
+data/az-rotation-counter.json
+npm-debug.log*
+.DS_Store

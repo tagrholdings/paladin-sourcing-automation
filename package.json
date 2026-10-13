@@ -1,0 +1,22 @@
+{
+  "name": "paladin-sourcing-automation",
+  "version": "0.1.0",
+  "description": "Triagem automatica de respostas de leads do Paladin Sourcing: webhook -> classificacao por IA -> roteamento pela matriz Menlo -> notificacao no Telegram",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "openai": "^4.60.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "dotenv": "^16.4.5"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
