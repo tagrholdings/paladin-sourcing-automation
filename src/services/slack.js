@@ -6,7 +6,7 @@ const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
 function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing }) {
   const icon = category === 'positive' ? '📩' : '⚠️';
-  const label = category === 'positive' ? 'Lead positiva' : 'Precisa de atenção';
+  const label = category === 'positive' ? 'Positive lead' : 'Needs attention';
 
   const blocks = [
     {
@@ -16,24 +16,24 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*De:*\n${fromPhone}` },
-        { type: 'mrkdwn', text: `*Motivo:*\n${reasoning}` },
+        { type: 'mrkdwn', text: `*From:*\n${fromPhone}` },
+        { type: 'mrkdwn', text: `*Reason:*\n${reasoning}` },
       ],
     },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Mensagem do lead:*\n>${leadText}` },
+      text: { type: 'mrkdwn', text: `*Lead message:*\n>${leadText}` },
     },
   ];
 
   if (routing) {
     const flag = routing.confidence === 'explicit' ? '' : ' ⚠️';
-    const advisorText = routing.advisors.length > 0 ? routing.advisors.join(' → ') : 'nenhum (ver nota)';
+    const advisorText = routing.advisors.length > 0 ? routing.advisors.join(' → ') : 'none (see note)';
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Advisor sugerido${flag}:* ${advisorText}\n_${routing.note}_`,
+        text: `*Suggested advisor${flag}:* ${advisorText}\n_${routing.note}_`,
       },
     });
   }
@@ -43,7 +43,7 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
     elements: [
       {
         type: 'mrkdwn',
-        text: '⚠️ Confirme a regra zero (relacionamento existente) no Pipedrive antes de enviar.',
+        text: '⚠️ Confirm rule zero (existing relationship) in Pipedrive before sending.',
       },
     ],
   });
@@ -51,7 +51,7 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
   if (suggestedReply) {
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Sugestão de resposta:*\n${suggestedReply}` },
+      text: { type: 'mrkdwn', text: `*Suggested reply:*\n${suggestedReply}` },
     });
   }
 
@@ -66,7 +66,7 @@ async function postToSlack(payload) {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Slack respondeu ${res.status}: ${body}`);
+    throw new Error(`Slack responded ${res.status}: ${body}`);
   }
 }
 
@@ -80,7 +80,7 @@ async function postToSlack(payload) {
  * @param {{advisors: string[], confidence: string, note: string}} [params.routing]
  */
 async function notifyLead(params) {
-  const fallbackText = `${params.category === 'positive' ? '📩 Lead positiva' : '⚠️ Precisa de atenção'} — ${params.fromPhone}`;
+  const fallbackText = `${params.category === 'positive' ? '📩 Positive lead' : '⚠️ Needs attention'} — ${params.fromPhone}`;
   await postToSlack({
     text: fallbackText, // usado em notificacoes push / previews que nao renderizam blocks
     blocks: buildBlocks(params),
@@ -90,13 +90,13 @@ async function notifyLead(params) {
 async function notifyError(contextLabel, error) {
   try {
     await postToSlack({
-      text: `🛑 Erro na automação: ${contextLabel}`,
+      text: `🛑 Automation error: ${contextLabel}`,
       blocks: [
         {
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `🛑 *Erro na automação*\n${contextLabel}\n\`\`\`${String(error?.message || error)}\`\`\``,
+            text: `🛑 *Automation error*\n${contextLabel}\n\`\`\`${String(error?.message || error)}\`\`\``,
           },
         },
       ],

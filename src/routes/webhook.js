@@ -41,7 +41,7 @@ router.post('/', async (req, res) => {
 
   processInboundMessage(payload.data).catch((err) => {
     console.error('[webhook] Erro ao processar mensagem:', err);
-    notifyError('Falha ao processar uma mensagem recebida do Paladin', err);
+    notifyError('Failed to process an inbound message from Paladin', err);
   });
 });
 
@@ -60,9 +60,9 @@ async function processInboundMessage(data) {
     // revisao manual em vez de tentar classificar algo que nao existe.
     await notifyLead({
       category: 'attention',
-      reasoning: 'Mensagem recebida sem texto (provavelmente MMS so com midia) — revisar manualmente no Paladin.',
+      reasoning: 'Message received with no text (likely an MMS with media only) — review manually in Paladin.',
       suggestedReply: null,
-      leadText: '[sem texto — possível mídia]',
+      leadText: '[no text — possible media]',
       fromPhone: from,
     });
     if (messageId) markProcessed(messageId);
@@ -92,7 +92,7 @@ async function processInboundMessage(data) {
     routing = {
       advisors: [],
       confidence: 'unresolved',
-      note: 'Localizacao do contato desconhecida (webhook nao traz esse dado). Confirme manualmente no CRM do Paladin antes de rotear.',
+      note: 'Contact location unknown (the webhook does not include it). Confirm manually in the Paladin CRM before routing.',
     };
   }
 

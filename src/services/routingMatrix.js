@@ -23,12 +23,12 @@
  */
 
 const EXPLICIT_SINGLE_STATE = {
-  TX: { advisors: ['Craig Gibowicz'], note: 'Texas — todos os leads, sem split' },
-  CO: { advisors: ['Craig Gibowicz'], note: 'Colorado — todos os leads, sem split' },
-  UT: { advisors: ['Rob Brian'], note: 'Utah — todos os leads, sem split' },
-  ID: { advisors: ['Rob Brian'], note: 'Idaho — todos os leads, sem split' },
-  WY: { advisors: ['Rob Brian'], note: 'Wyoming — todos os leads, sem split' },
-  NV: { advisors: ['Mark Soelberg'], note: 'Nevada — todos os leads' },
+  TX: { advisors: ['Craig Gibowicz'], note: 'Texas — all leads, no split' },
+  CO: { advisors: ['Craig Gibowicz'], note: 'Colorado — all leads, no split' },
+  UT: { advisors: ['Rob Brian'], note: 'Utah — all leads, no split' },
+  ID: { advisors: ['Rob Brian'], note: 'Idaho — all leads, no split' },
+  WY: { advisors: ['Rob Brian'], note: 'Wyoming — all leads, no split' },
+  NV: { advisors: ['Mark Soelberg'], note: 'Nevada — all leads' },
 };
 
 // Definicao de censo dos EUA (comum, nao explicita no documento).
@@ -49,7 +49,7 @@ const WEST_OF_MISSISSIPPI = new Set([
 // Mississippi — ver aviso no retorno).
 
 const ARIZONA_TUCSON_SOUTHERN_NOTE =
-  'Arizona Tucson/Sul do AZ precisa ser diferenciado do resto do Arizona pela cidade, nao so pela sigla do estado.';
+  'Tucson/Southern AZ must be told apart from the rest of Arizona by city, not just by state code.';
 
 /**
  * Armazenamento do contador de rodizio do Arizona.
@@ -100,7 +100,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
     return {
       advisors: [],
       confidence: 'unresolved',
-      note: 'Estado nao informado — nao e possivel rotear sem ele.',
+      note: 'State not provided — cannot route without it.',
     };
   }
   const state = stateCode.trim().toUpperCase();
@@ -112,7 +112,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
     return {
       advisors: [],
       confidence: 'unresolved',
-      note: `${state} nao esta coberto pela matriz de roteamento. Confirmar com o gestor antes de atribuir.`,
+      note: `${state} is not covered by the routing matrix. Confirm with the manager before assigning.`,
     };
   }
 
@@ -123,8 +123,8 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
       advisors: isWest ? ['David Haynes', 'Craig Gibowicz'] : ['Craig Gibowicz', 'David Haynes'],
       confidence: 'explicit',
       note: isWest
-        ? 'Lead grande/multi-pratica a oeste do Mississippi (inclui toda a California) — Haynes primeiro.'
-        : 'Lead grande/multi-pratica a leste do Mississippi — Craig primeiro.',
+        ? 'Large/multi-practice lead west of the Mississippi (includes all of California) — Haynes first.'
+        : 'Large/multi-practice lead east of the Mississippi — Craig first.',
     };
   }
 
@@ -142,21 +142,21 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
       return {
         advisors: ['Marc Schubert'],
         confidence: 'explicit',
-        note: 'Tucson / Sul do Arizona — direto para Schubert.',
+        note: 'Tucson / Southern Arizona — straight to Schubert.',
       };
     }
     if (!city) {
       return {
         advisors: ['David Haynes', 'Mark Soelberg', 'Marc Schubert'],
         confidence: 'unresolved',
-        note: `Arizona sem cidade informada — nao da para confirmar se e Tucson/Sul. ${ARIZONA_TUCSON_SOUTHERN_NOTE}`,
+        note: `Arizona with no city provided — cannot confirm whether it is Tucson/Southern AZ. ${ARIZONA_TUCSON_SOUTHERN_NOTE}`,
       };
     }
     const nextAdvisor = nextArizonaRotation();
     return {
       advisors: [nextAdvisor, 'Marc Schubert'],
       confidence: 'explicit',
-      note: `Rodizio Arizona (fora de Tucson/Sul): proximo da sequencia e ${nextAdvisor}. Schubert e backup se ele nao tiver capacidade.`,
+      note: `Arizona rotation (outside Tucson/Southern AZ): next in sequence is ${nextAdvisor}. Schubert is backup if they lack capacity.`,
     };
   }
 
@@ -166,7 +166,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
       return {
         advisors: ['David Haynes', 'Mark Soelberg', 'Rob Brian', 'Marc Schubert'],
         confidence: 'unresolved',
-        note: 'California sem cidade informada — nao da para saber se e Norte ou Sul. Confirmar manualmente.',
+        note: 'California with no city provided — cannot tell Northern from Southern. Confirm manually.',
       };
     }
     // Heuristica simples e deliberadamente conservadora: nao tenta
@@ -177,7 +177,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
     return {
       advisors: ['David Haynes', 'Mark Soelberg', 'Rob Brian', 'Marc Schubert'],
       confidence: 'unresolved',
-      note: `California — cidade "${city}" informada, mas este modulo nao tem uma lista confiavel de Norte vs. Sul da California. Confirmar manualmente: Sul = Haynes, Soelberg, Rob Brian, Schubert; Norte = Soelberg, Rob Brian, Schubert.`,
+      note: `California — city "${city}" provided, but this module has no reliable list of Northern vs. Southern California cities. Confirm manually: South = Haynes, Soelberg, Rob Brian, Schubert; North = Soelberg, Rob Brian, Schubert.`,
     };
   }
 
@@ -186,7 +186,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
     return {
       advisors: ['Luke Kapper'],
       confidence: 'inferred',
-      note: 'Pacific Northwest (WA/OR, definicao inferida — documento nao lista siglas) — exclusivo do Luke Kapper.',
+      note: 'Pacific Northwest (WA/OR, inferred definition — document does not list state codes) — Luke Kapper exclusively.',
     };
   }
 
@@ -195,21 +195,21 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
     return {
       advisors: ['Craig Gibowicz'],
       confidence: 'inferred',
-      note: 'Midwest (definicao inferida pelo censo dos EUA — documento nao lista siglas) — Craig Gibowicz.',
+      note: 'Midwest (inferred from US Census definition — document does not list state codes) — Craig Gibowicz.',
     };
   }
   if (INFERRED_SOUTHEAST.includes(state)) {
     return {
       advisors: ['Craig Gibowicz'],
       confidence: 'inferred',
-      note: 'Southeast (definicao inferida — documento nao lista siglas) — Craig Gibowicz.',
+      note: 'Southeast (inferred definition — document does not list state codes) — Craig Gibowicz.',
     };
   }
   if (INFERRED_NORTHEAST.includes(state)) {
     return {
       advisors: ['Rob Brian'],
       confidence: 'inferred',
-      note: 'Northeast (definicao inferida — documento nao lista siglas) — Rob Brian.',
+      note: 'Northeast (inferred definition — document does not list state codes) — Rob Brian.',
     };
   }
 
@@ -217,7 +217,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
   return {
     advisors: [],
     confidence: 'unresolved',
-    note: `Estado "${state}" nao esta coberto pela matriz (nao e Midwest/Southeast/Northeast/TX/CO/UT/ID/WY/NV/AZ/CA/PNW nas definicoes usadas). Confirmar manualmente com o gestor.`,
+    note: `State "${state}" is not covered by the matrix (not Midwest/Southeast/Northeast/TX/CO/UT/ID/WY/NV/AZ/CA/PNW under the definitions used). Confirm manually with the manager.`,
   };
 }
 
