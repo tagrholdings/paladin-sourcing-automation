@@ -4,7 +4,7 @@ const webhookRouter = require('./routes/webhook');
 
 const REQUIRED_ENV = [
   'PALADIN_WEBHOOK_SECRET',
-  'OPENAI_API_KEY',
+  'GEMINI_API_KEY',
   'SLACK_WEBHOOK_URL',
 ];
 

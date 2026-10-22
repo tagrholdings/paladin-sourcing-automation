@@ -8,9 +8,9 @@ vale a pena olhar.
 ## ⚠️ Antes de tudo: segurança
 
 Se você chegou aqui depois de colar um token da Paladin ou uma chave da
-OpenAI em algum chat, **revogue e gere credenciais novas** antes de colocar
+Gemini em algum chat, **revogue e gere credenciais novas** antes de colocar
 isso em produção:
-- OpenAI: https://platform.openai.com/api-keys
+- Gemini: https://aistudio.google.com/apikey
 - Paladin: Settings → Integrations/API no painel
 
 Nenhuma credencial deve estar no código. Tudo vem de variáveis de ambiente
@@ -119,7 +119,7 @@ src/
   routes/webhook.js         # recebe o POST /webhook, orquestra o fluxo
   lib/verifySignature.js    # verificação HMAC-SHA256
   lib/idempotency.js        # dedupe de retentativas (em memória)
-  services/classifier.js    # classificação via OpenAI
+  services/classifier.js    # classificação via Gemini
   services/routingMatrix.js # matriz de roteamento da Menlo
   services/contactLookup.js # placeholder — dados do contato (nome/cidade/estado)
   services/slack.js         # envio das notificações

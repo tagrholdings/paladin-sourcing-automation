@@ -1,7 +1,11 @@
 const OpenAI = require('openai');
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+// Gemini via its OpenAI-compatible endpoint, so the SDK call stays the same.
+const client = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+});
+const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 /**
  * Categorias de saida:

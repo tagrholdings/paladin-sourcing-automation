@@ -21,6 +21,13 @@ router.post('/', async (req, res) => {
     return res.status(401).json({ error: 'invalid_signature' });
   }
 
+  // Pausa manual: PAUSED=true no Railway. Devolve 503 (em vez de 2xx) para
+  // a Paladin nao considerar a mensagem entregue.
+  if (process.env.PAUSED === 'true') {
+    console.log('[webhook] Automacao pausada (PAUSED=true) — evento nao processado.');
+    return res.status(503).json({ error: 'paused' });
+  }
+
   // Responde 2xx imediatamente (dentro dos 10s exigidos pela Paladin)
   // e processa de forma assincrona, conforme best practice da doc.
   res.status(200).json({ received: true });
