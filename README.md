@@ -41,9 +41,15 @@ Nenhuma credencial deve estar no código. Tudo vem de variáveis de ambiente
   de contatos, `src/services/contactLookup.js` é um placeholder que
   retorna "desconhecido", e a notificação avisa que isso precisa ser
   conferido no CRM.
-- **Não resolve estados que a matriz original não cobre** (Havaí, Virgínia,
-  West Virginia, Oklahoma, etc.) — nesses casos a notificação mostra
-  "⚠️ não coberto pela matriz" em vez de arriscar um palpite.
+- **Não resolve estados fora da cobertura conhecida.** Além da matriz
+  oficial (PDF da Menlo), o Mitch confirmou por fora em 22/10/2026:
+  Alaska e Havaí → Rob Brian; Montana → Luke Kapper; Novo México →
+  split 50/50 Craig Gibowicz/Mark Soelberg; Oklahoma → split 50/50
+  Craig Gibowicz/Rob Brian; Delaware, Maryland, Virgínia e DC → Craig
+  Gibowicz; **West Virginia → ninguém, a Menlo não pode transacionar
+  nesse estado** (bloqueio legal/de licença, não falta de advisor).
+  Qualquer outro estado fora dessas listas ainda mostra "⚠️ não
+  coberto pela matriz" em vez de arriscar um palpite.
 
 ## Rodando localmente
 

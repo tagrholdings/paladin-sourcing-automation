@@ -7,8 +7,9 @@
  * regra zero no Pipedrive", nunca como decisao final automatica.
  *
  * Estados/regioes codificados com certeza (citados explicitamente no
- * documento): Texas, Colorado, Utah, Idaho, Wyoming, Nevada, Arizona,
- * California (Norte/Sul), Pacific Northwest (Washington e Oregon).
+ * documento oficial): Texas, Colorado, Utah, Idaho, Wyoming, Nevada,
+ * Arizona, California (Norte/Sul), Pacific Northwest (Washington e
+ * Oregon).
  *
  * "Midwest", "Southeast" e "todos os estados do Nordeste" NAO vieram
  * com lista explicita de siglas no documento. Uso aqui as definicoes
@@ -16,10 +17,23 @@
  * marco o resultado com confidence:"inferred" para que a pessoa saiba
  * que isso nao veio literalmente do documento e vale confirmar.
  *
- * Estados que apareceram nos leads processados e que o documento
- * simplesmente nao cobre (Virginia, West Virginia, Oklahoma, Havai,
- * Montana, Novo Mexico, Alasca, Kansas, Meio-Atlantico em geral) ficam
- * como confidence:"unresolved" - a funcao nao arrisca um advisor.
+ * Estados que o documento original nao cobria foram confirmados
+ * diretamente pelo Mitch (CEO) em 22/10/2026, fora do PDF oficial:
+ *   - Alasca (AK) -> Rob Brian
+ *   - Havai (HI) -> Rob Brian
+ *   - Montana (MT) -> Luke Kapper
+ *   - Novo Mexico (NM) -> 50/50 Craig Gibowicz / Mark Soelberg
+ *   - Oklahoma (OK) -> 50/50 Craig Gibowicz / Rob Brian
+ *   - Delaware (DE) -> Craig Gibowicz
+ *   - Maryland (MD) -> Craig Gibowicz
+ *   - Virginia (VA) -> Craig Gibowicz
+ *   - Distrito de Columbia (DC) -> Craig Gibowicz
+ *   - West Virginia (WV) -> NINGUEM. A Menlo nao pode transacionar
+ *     nesse estado (restricao de licenca/legal, nao e so falta de
+ *     advisor). Leads de WV devem ser recusados/sinalizados, nunca
+ *     roteados.
+ * Essas confirmacoes tem confidence:"explicit" porque vieram
+ * diretamente do Mitch, mesmo nao estando no PDF da matriz.
  */
 
 const EXPLICIT_SINGLE_STATE = {
@@ -29,6 +43,31 @@ const EXPLICIT_SINGLE_STATE = {
   ID: { advisors: ['Rob Brian'], note: 'Idaho — all leads, no split' },
   WY: { advisors: ['Rob Brian'], note: 'Wyoming — all leads, no split' },
   NV: { advisors: ['Mark Soelberg'], note: 'Nevada — all leads' },
+  // Confirmed by Mitch on 2026-10-22 (outside the official PDF):
+  AK: { advisors: ['Rob Brian'], note: 'Alaska — confirmed by Mitch (2026-10-22), all leads' },
+  HI: { advisors: ['Rob Brian'], note: 'Hawaii — confirmed by Mitch (2026-10-22), all leads' },
+  MT: { advisors: ['Luke Kapper'], note: 'Montana — confirmed by Mitch (2026-10-22), all leads' },
+  DE: { advisors: ['Craig Gibowicz'], note: 'Delaware — confirmed by Mitch (2026-10-22), all leads' },
+  MD: { advisors: ['Craig Gibowicz'], note: 'Maryland — confirmed by Mitch (2026-10-22), all leads' },
+  VA: { advisors: ['Craig Gibowicz'], note: 'Virginia — confirmed by Mitch (2026-10-22), all leads' },
+  DC: { advisors: ['Craig Gibowicz'], note: 'Washington DC — confirmed by Mitch (2026-10-22), all leads' },
+};
+
+// States with a fixed 50/50 split between two advisors, confirmed by
+// Mitch on 2026-10-22. Neither the document nor Mitch specified a
+// rotation order (unlike Arizona), so we return both names and leave
+// it to the person to pick/alternate manually.
+const EXPLICIT_FIFTY_FIFTY_STATE = {
+  NM: { advisors: ['Craig Gibowicz', 'Mark Soelberg'], note: 'New Mexico — 50/50 split confirmed by Mitch (2026-10-22), no defined rotation order' },
+  OK: { advisors: ['Craig Gibowicz', 'Rob Brian'], note: 'Oklahoma — 50/50 split confirmed by Mitch (2026-10-22), no defined rotation order' },
+};
+
+// West Virginia: Menlo cannot transact in this state (legal/licensing
+// restriction, confirmed by Mitch on 2026-10-22) — this is not a
+// missing advisor, it's a block. WV leads must be flagged for decline,
+// never routed.
+const BLOCKED_STATES = {
+  WV: 'West Virginia — Menlo cannot transact in this state (confirmed by Mitch, 2026-10-22). Do not route; flag the lead for decline.',
 };
 
 // Definicao de censo dos EUA (comum, nao explicita no documento).
@@ -105,14 +144,15 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
   }
   const state = stateCode.trim().toUpperCase();
 
-  // Hawaii e Alaska: o documento nao cobre nenhum dos dois para fins
-  // de roteamento padrao de dentista vendendo pratica. Ver caso real
-  // registrado (lead do Havai) — nao assumir nada.
-  if (state === 'HI' || state === 'AK') {
+  // West Virginia: bloqueio legal/de licenca, nao falta de advisor.
+  // Confirmado pelo Mitch (22/10/2026). Isso vale mesmo que o lead
+  // seja grande/multi-pratica — nao ha advisor nenhum que possa
+  // transacionar nesse estado, entao o bloqueio vem antes de tudo.
+  if (BLOCKED_STATES[state]) {
     return {
       advisors: [],
-      confidence: 'unresolved',
-      note: `${state} is not covered by the routing matrix. Confirm with the manager before assigning.`,
+      confidence: 'blocked',
+      note: BLOCKED_STATES[state],
     };
   }
 
@@ -213,11 +253,17 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
     };
   }
 
+  // --- Estados com split 50/50 confirmados pelo Mitch (22/10/2026) ---
+  if (EXPLICIT_FIFTY_FIFTY_STATE[state]) {
+    const { advisors, note } = EXPLICIT_FIFTY_FIFTY_STATE[state];
+    return { advisors, confidence: 'explicit', note };
+  }
+
   // --- Qualquer outro estado: documento nao cobre ---
   return {
     advisors: [],
     confidence: 'unresolved',
-    note: `State "${state}" is not covered by the matrix (not Midwest/Southeast/Northeast/TX/CO/UT/ID/WY/NV/AZ/CA/PNW under the definitions used). Confirm manually with the manager.`,
+    note: `State "${state}" is not covered by the matrix (not Midwest/Southeast/Northeast/TX/CO/UT/ID/WY/NV/AZ/CA/PNW/AK/HI/MT/DE/MD/VA/DC/NM/OK/WV under the definitions used). Confirm manually with the manager.`,
   };
 }
 
