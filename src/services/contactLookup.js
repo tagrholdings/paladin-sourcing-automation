@@ -1,28 +1,58 @@
 /**
- * PLACEHOLDER. O payload do webhook message.inbound da Paladin traz
- * apenas contactId, texto, telefone de origem/destino e timestamp -
- * NAO traz nome, cidade, estado ou tamanho da pratica (ver resposta
- * do suporte da Paladin sobre API de contatos).
+ * O payload do webhook message.inbound da Paladin traz apenas
+ * contactId, texto, telefone de origem/destino e timestamp - NAO traz
+ * nome, cidade, estado ou tamanho da pratica.
  *
- * Ate confirmarmos se existe uma API de contatos (pergunta enviada ao
- * suporte da Paladin), esta funcao nao inventa dados. Ela retorna
- * tudo como null/desconhecido, e o restante do sistema (slack.js,
- * routingMatrix.js) sabe lidar com isso mostrando um aviso em vez de
- * fingir que tem a informacao.
+ * ATUALIZACAO (28/10/2026): a API oficial documentada do Paladin ainda
+ * nao tem um endpoint de contatos (suporte contatado 14/10 e 20/10,
+ * sem resposta). Enquanto isso, usamos o cliente NAO OFICIAL em
+ * src/services/paladinApiClient.js (engenharia reversa do dashboard,
+ * ver comentario de topo daquele arquivo para limitacoes e riscos) para
+ * buscar os dados de verdade. Se o Paladin responder com uma API
+ * oficial de contatos, PREFERIR migrar para ela.
  *
- * Quando a API de contatos existir, substituir o corpo desta funcao
- * por uma chamada real (ex.: GET /contacts/:contactId) e preencher
- * state/city/isLargeOrMultiPractice a partir da resposta.
+ * isLargeOrMultiPractice continua null/desconhecido: nenhum dos
+ * endpoints descobertos ate agora sinaliza isso automaticamente -
+ * continua dependendo de confirmacao humana (ex.: pela bio/company do
+ * contato, que normalmente da pra ler isso, mas nao e um campo
+ * estruturado).
  */
+const { findContactById } = require('./paladinApiClient');
+
 async function lookupContact(contactId) {
-  return {
-    contactId,
-    name: null,
-    city: null,
-    state: null,
-    isLargeOrMultiPractice: null, // desconhecido ate confirmar fonte de dados
-    source: 'unavailable',
-  };
+  try {
+    const contact = await findContactById(contactId);
+    if (!contact) {
+      return {
+        contactId,
+        name: null,
+        city: null,
+        state: null,
+        isLargeOrMultiPractice: null,
+        source: 'not_found_in_recent_conversations',
+      };
+    }
+    return {
+      contactId,
+      name: [contact.firstName, contact.lastName].filter(Boolean).join(' ') || null,
+      city: contact.city || null,
+      state: contact.state || null,
+      occupation: contact.occupation || null,
+      bio: contact.company || null, // campo "company" da API e na verdade a bio/descricao longa
+      isLargeOrMultiPractice: null, // ver comentario acima - continua exigindo confirmacao humana
+      source: 'paladin_unofficial_api',
+    };
+  } catch (err) {
+    console.error('[contactLookup] Falha ao buscar contato via API nao oficial do Paladin:', err.message);
+    return {
+      contactId,
+      name: null,
+      city: null,
+      state: null,
+      isLargeOrMultiPractice: null,
+      source: 'lookup_error',
+    };
+  }
 }
 
 module.exports = { lookupContact };

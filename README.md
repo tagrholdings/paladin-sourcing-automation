@@ -28,19 +28,30 @@ Nenhuma credencial deve estar no código. Tudo vem de variáveis de ambiente
 - Sugere um rascunho de resposta (você ainda entra no CRM do Paladin e
   envia manualmente).
 
+**Faz (via API não oficial, desde 28/10/2026):**
+- **Envia mensagens, star/archive de conversas, e busca dados do contato**
+  (nome, cidade, estado, ocupação, bio) usando
+  `src/services/paladinApiClient.js` — um cliente construído por
+  engenharia reversa do dashboard do Paladin (captura de HAR), já que a
+  API oficial documentada não oferece isso e o suporte deles (Arjun,
+  contatado em 14/10 e 20/10/2026) não respondeu sobre o assunto até
+  agora. **Leia o comentário no topo daquele arquivo** antes de mexer —
+  cobre os endpoints confirmados, as limitações (sessão via cookie
+  copiado manualmente, sem login automatizado ainda) e o risco de quebrar
+  sem aviso se o Paladin mudar o frontend deles. Se/quando a Paladin
+  responder com uma API oficial, migrar para ela.
+
 **NÃO faz (de propósito, por enquanto):**
-- **Não envia mensagens pelo Paladin.** Não há API de envio confirmada na
-  documentação que recebemos — só webhooks de recebimento. Você ainda
-  responde manualmente no CRM.
 - **Não verifica a "regra zero" no Pipedrive automaticamente.** Não há
   integração com o Pipedrive neste projeto ainda. Toda notificação do
   Slack inclui um lembrete para você conferir isso manualmente.
-- **Não sabe o nome/cidade/estado do contato com certeza.** O payload do
-  webhook só traz `contactId`, telefone e texto — não traz dados
-  cadastrais. Até confirmarmos com o suporte da Paladin se existe uma API
-  de contatos, `src/services/contactLookup.js` é um placeholder que
-  retorna "desconhecido", e a notificação avisa que isso precisa ser
-  conferido no CRM.
+- **Não sabe com certeza se um lead é grande/multi-prática.** Nenhum
+  endpoint descoberto até agora sinaliza isso estruturadamente — continua
+  dependendo de confirmação humana (ler a bio do contato ajuda, mas não é
+  um campo confiável para automação).
+- **Não tem login automatizado no Paladin.** O cookie de sessão usado
+  pelo `paladinApiClient.js` precisa ser renovado manualmente de tempos
+  em tempos (ver `.env.example`).
 - **Não resolve estados fora da cobertura conhecida.** Além da matriz
   oficial (PDF da Menlo), o Mitch confirmou por fora em 22/10/2026:
   Alaska e Havaí → Rob Brian; Montana → Luke Kapper; Novo México →
