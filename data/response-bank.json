@@ -1,0 +1,622 @@
+{
+  "positive_yes": {
+    "leadMessages": 546,
+    "answeredByUs": 466,
+    "commonLeadTexts": [
+      {
+        "text": "yes",
+        "count": 184
+      },
+      {
+        "text": "sure",
+        "count": 84
+      },
+      {
+        "text": "ok",
+        "count": 37
+      },
+      {
+        "text": "maybe",
+        "count": 18
+      },
+      {
+        "text": "yes i would",
+        "count": 8
+      },
+      {
+        "text": "possibly",
+        "count": 8
+      },
+      {
+        "text": "sounds good",
+        "count": 8
+      },
+      {
+        "text": "okay",
+        "count": 6
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+        "used": 78,
+        "leadRepliedAgainPct": 26
+      },
+      {
+        "text": "Great...would love to connect and discuss what that looks like. We'll reach out after patient hours? Looking forward to connecting..",
+        "used": 41,
+        "leadRepliedAgainPct": 24
+      },
+      {
+        "text": "Happy to schedule a call, is there a time that works better for you?",
+        "used": 29,
+        "leadRepliedAgainPct": 48
+      },
+      {
+        "text": "Happy to jump on the phone and discuss. What is the best time to reach you?",
+        "used": 23,
+        "leadRepliedAgainPct": 39
+      },
+      {
+        "text": "Great, happy to jump on the phone and discuss. What is the best time to reach you?",
+        "used": 17,
+        "leadRepliedAgainPct": 65
+      },
+      {
+        "text": "Great... would love to connect and discuss... I'll reach out after patient hours... looking forward to it.",
+        "used": 8,
+        "leadRepliedAgainPct": 13
+      },
+      {
+        "text": "Great, what is the best time to reach you? I want to be respectful of your schedule.",
+        "used": 5,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "Great, what is the best time to call? Looking forward to connecting.",
+        "used": 4,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Happy to call....what are the best hours to reach you?",
+        "used": 4,
+        "leadRepliedAgainPct": 75
+      },
+      {
+        "text": "Sure....I work with Menlo Dental Transitions. We represent sellers in most cases but can help with any part of a transition and have for a very long time.",
+        "used": 3,
+        "leadRepliedAgainPct": 67
+      }
+    ]
+  },
+  "other": {
+    "leadMessages": 1209,
+    "answeredByUs": 806,
+    "commonLeadTexts": [
+      {
+        "text": "i'm driving sent from my car",
+        "count": 5
+      },
+      {
+        "text": "which one",
+        "count": 4
+      },
+      {
+        "text": "wrong",
+        "count": 3
+      },
+      {
+        "text": "who's mark",
+        "count": 3
+      },
+      {
+        "text": "not yet",
+        "count": 3
+      },
+      {
+        "text": "1 stop",
+        "count": 3
+      },
+      {
+        "text": "i would",
+        "count": 3
+      },
+      {
+        "text": "which practice",
+        "count": 3
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Sure....I work with Menlo Dental Transitions. We represent sellers in most cases but can help with any part of a transition and have for a very long time.",
+        "used": 32,
+        "leadRepliedAgainPct": 31
+      },
+      {
+        "text": "Great...would love to connect and discuss what that looks like. We'll reach out after patient hours? Looking forward to connecting..",
+        "used": 25,
+        "leadRepliedAgainPct": 40
+      },
+      {
+        "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+        "used": 13,
+        "leadRepliedAgainPct": 38
+      },
+      {
+        "text": "This is Mark with Menlo Dental Transitions. We help dental practice owners evaluate partnership or sale options, run a confidential process with strategic buyers (including DSOs) or doctor-to-doctor, and help negotiate terms. Would you be open to a quick call to see if its relevant for you?",
+        "used": 5,
+        "leadRepliedAgainPct": 40
+      },
+      {
+        "text": "Sounds good ... will do.",
+        "used": 4,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "David with Menlo Dental Transitions. I help dental practice owners explore partnering with a DSO or selling to a strategic buyer. If youd prefer I not reach out again, just reply 1 to stop.",
+        "used": 4,
+        "leadRepliedAgainPct": 75
+      },
+      {
+        "text": "Ok Great...I will have my CRE partner contact you. Is this the number you'd like them to reach out to and who should the address the message to?",
+        "used": 4,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "The number has been arbitrarily assigned to our texting platform, that said, we transact all over the country so it doesn't matter which state you are in. If you have interest in a transition at all we'd love to connect.",
+        "used": 3,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "I work with Menlo Dental Transitions.",
+        "used": 3,
+        "leadRepliedAgainPct": 33
+      },
+      {
+        "text": "If you are looking at a private sale those are different multiples than a DSO sale but directionally, 6-9x is what institutional buyers are paying for practices that fit their buyer criteria. Obviously there are some strategies that can get you to the high side of that and we are real familiar with that that looks like. Again...would be happy to connect when it's convenient for you.",
+        "used": 3,
+        "leadRepliedAgainPct": 100
+      }
+    ]
+  },
+  "wrong_number": {
+    "leadMessages": 105,
+    "answeredByUs": 6,
+    "commonLeadTexts": [
+      {
+        "text": "wrong number",
+        "count": 37
+      },
+      {
+        "text": "you have the wrong number",
+        "count": 6
+      },
+      {
+        "text": "wrong person",
+        "count": 5
+      },
+      {
+        "text": "sorry wrong number",
+        "count": 2
+      },
+      {
+        "text": "i think you have the wrong number",
+        "count": 2
+      },
+      {
+        "text": "i'm not dr moldauer but if you are a broker and know of mb2 dental i'd love to c",
+        "count": 1
+      },
+      {
+        "text": "mark this not dr stanley invest nearby you got a 801 area code you know investor",
+        "count": 1
+      },
+      {
+        "text": "mark what company are you with i'm not dr hacker",
+        "count": 1
+      }
+    ],
+    "topReplies": []
+  },
+  "not_interested": {
+    "leadMessages": 259,
+    "answeredByUs": 36,
+    "commonLeadTexts": [
+      {
+        "text": "no",
+        "count": 79
+      },
+      {
+        "text": "no thanks",
+        "count": 19
+      },
+      {
+        "text": "no thank you",
+        "count": 17
+      },
+      {
+        "text": "not at this time",
+        "count": 11
+      },
+      {
+        "text": "not interested",
+        "count": 9
+      },
+      {
+        "text": "nope",
+        "count": 6
+      },
+      {
+        "text": "no not interested",
+        "count": 4
+      },
+      {
+        "text": "not at this time thanks",
+        "count": 3
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Great...we have several that are currently ready to transition as we speak. Are you targeting a specific geographic area?  Would love to know what your criteria to see if it matches the practices we are touring now.",
+        "used": 2,
+        "leadRepliedAgainPct": 100
+      }
+    ]
+  },
+  "thanks_ack": {
+    "leadMessages": 184,
+    "answeredByUs": 138,
+    "commonLeadTexts": [
+      {
+        "text": "thank you",
+        "count": 6
+      },
+      {
+        "text": "hi",
+        "count": 5
+      },
+      {
+        "text": "thanks",
+        "count": 4
+      },
+      {
+        "text": "hi mark what group are you with",
+        "count": 2
+      },
+      {
+        "text": "hi sure",
+        "count": 2
+      },
+      {
+        "text": "hello mark",
+        "count": 2
+      },
+      {
+        "text": "hi yes i would",
+        "count": 2
+      },
+      {
+        "text": "hi mark",
+        "count": 2
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+        "used": 6,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Sure....I work with Menlo Dental Transitions. We represent sellers in most cases but can help with any part of a transition and have for a very long time.",
+        "used": 4,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Great, what is the best time to reach you? I want to be respectful of your schedule.",
+        "used": 4,
+        "leadRepliedAgainPct": 25
+      },
+      {
+        "text": "Great...would love to connect and discuss what that looks like. We'll reach out after patient hours? Looking forward to connecting..",
+        "used": 2,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "Hi Dr. {{lastName}}.. sorry for the hassle...this phone number is our texting platform number. I'll reach out again and try to connect via phone. Thanks..",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "For sure, we are always working with dentists months and years before a transaction is on the horizon. When would be a better time to reconnect, and is there an email I can send a quick overview to?",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Im with Menlo Dental Transitions. We help dental practice owners evaluate partnership or sale options and run a confidential process with strategic buyers (including DSOs) or doctor-to-doctor. Would you be open to a quick call to see if its relevant for you?",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "I got your number from publicly available business/contact information for the practice. If youd prefer I not reach out again, just reply 1 to stop.",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "Im with Menlo Dental Transitions. We help dental practice owners evaluate a partnership or sale and run a confidential process with DSOs or private buyers. Would you be open to a quick call to see if its relevant for you?",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Happy to schedule a call. Is there a time that works better for you?",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      }
+    ]
+  },
+  "empty": {
+    "leadMessages": 26,
+    "answeredByUs": 8,
+    "commonLeadTexts": [
+      {
+        "text": "",
+        "count": 26
+      }
+    ],
+    "topReplies": []
+  },
+  "call_me_now": {
+    "leadMessages": 159,
+    "answeredByUs": 127,
+    "commonLeadTexts": [
+      {
+        "text": "now",
+        "count": 5
+      },
+      {
+        "text": "i am available now",
+        "count": 4
+      },
+      {
+        "text": "sure call me",
+        "count": 3
+      },
+      {
+        "text": "call me",
+        "count": 3
+      },
+      {
+        "text": "yes call me",
+        "count": 2
+      },
+      {
+        "text": "mark call me crazy but i normally know someone's name before cold texting them",
+        "count": 1
+      },
+      {
+        "text": "thanks but i'm not ready for nikki discussion are you gonna think about it until",
+        "count": 1
+      },
+      {
+        "text": "i'm not going to sell it now maybe in a couple years i can meet you face to face",
+        "count": 1
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Great...would love to connect and discuss what that looks like. We'll reach out after patient hours? Looking forward to connecting..",
+        "used": 4,
+        "leadRepliedAgainPct": 25
+      },
+      {
+        "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+        "used": 3,
+        "leadRepliedAgainPct": 67
+      },
+      {
+        "text": "Happy to do it. What is the best time to reach you? I want to be respectful of your time.",
+        "used": 3,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "Ok calling shorty ...look for a 602 number so you know it's me.",
+        "used": 2,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "I'm in a meeting but my partner Craig (who actually covers your area) will call momentarily. Look for a 303 number...",
+        "used": 2,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "A real person....",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "Sure.. now ok?",
+        "used": 2,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "ok...calling shortly",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Happy to... I'll be calling from an 801 number...talk soon.",
+        "used": 2,
+        "leadRepliedAgainPct": 100
+      }
+    ]
+  },
+  "buyer_investor": {
+    "leadMessages": 152,
+    "answeredByUs": 126,
+    "commonLeadTexts": [
+      {
+        "text": "buyer",
+        "count": 10
+      },
+      {
+        "text": "investor",
+        "count": 5
+      },
+      {
+        "text": "a buyer",
+        "count": 4
+      },
+      {
+        "text": "yes a buyer",
+        "count": 2
+      },
+      {
+        "text": "this is a dental hygiene only practice tell me more if you have a buyer that wou",
+        "count": 2
+      },
+      {
+        "text": "a buyer yes",
+        "count": 2
+      },
+      {
+        "text": "which dso",
+        "count": 1
+      },
+      {
+        "text": "i will sell the practice but there is no real estate to sell i am leasing my spa",
+        "count": 1
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+        "used": 7,
+        "leadRepliedAgainPct": 29
+      },
+      {
+        "text": "Great...would love to connect and discuss what that looks like. We'll reach out after patient hours? Looking forward to connecting..",
+        "used": 6,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Dr. {{lastName}}....thanks for the reply. When you say you are looking to invest in dental practices are you meaning expand your current practice?",
+        "used": 3,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "By investor I mean a strategic group like a DSO or other institutional buyer that can partner with you, either by buying a majority or minority stake, while you continue practicing and they provide capital and support. We also work with private (individual) buyers. Would you be open to a quick call to discuss what type of partner, if any, you would consider?",
+        "used": 3,
+        "leadRepliedAgainPct": 67
+      },
+      {
+        "text": "Happy to connect and discuss.... I'll reach out after patient hours. Thanks and looking forward to it.",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "We are not a DSO. We are with Menlo Dental Transitions, we run a confidential process and introduce you to multiple strategic buyers, including DSOs, so you can compare options and terms. Are you asking which DSOs we work with, or are you already talking to a specific group?",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Great, we work with various institutional investors and are familiar with what they are looking for. Would it make sense to jump on a quick call to discuss your situation and I can share what we are seeing in the market?",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "Great...I reach out and we can discuss over the phone. Looking forward to it. Thanks.",
+        "used": 2,
+        "leadRepliedAgainPct": 0
+      }
+    ]
+  },
+  "who_is_this": {
+    "leadMessages": 187,
+    "answeredByUs": 178,
+    "commonLeadTexts": [
+      {
+        "text": "who is this",
+        "count": 27
+      },
+      {
+        "text": "what company are you with",
+        "count": 17
+      },
+      {
+        "text": "mark who",
+        "count": 6
+      },
+      {
+        "text": "who are you with",
+        "count": 6
+      },
+      {
+        "text": "what company do you work for",
+        "count": 6
+      },
+      {
+        "text": "where are you located",
+        "count": 4
+      },
+      {
+        "text": "about what",
+        "count": 3
+      },
+      {
+        "text": "which company are you with",
+        "count": 3
+      }
+    ],
+    "topReplies": [
+      {
+        "text": "Sure....I work with Menlo Dental Transitions. We represent sellers in most cases but can help with any part of a transition and have for a very long time.",
+        "used": 57,
+        "leadRepliedAgainPct": 25
+      },
+      {
+        "text": "This is David with Menlo Dental Transitions. I help dental practice owners evaluate partnership or sale options with strategic buyers/investors.",
+        "used": 11,
+        "leadRepliedAgainPct": 18
+      },
+      {
+        "text": "Im with Menlo Dental Transitions. We help dental practice owners evaluate a partnership or sale and run a confidential process with DSOs or private buyers. Would you be open to a quick call to see if its relevant for you?",
+        "used": 8,
+        "leadRepliedAgainPct": 13
+      },
+      {
+        "text": "This is Mark with Menlo Dental Transitions. We help dental practice owners evaluate partnership or sale options and run a confidential process with strategic buyers (including DSOs) or doctor-to-doctor. Would you be open to a quick call to see if it is relevant for you?",
+        "used": 4,
+        "leadRepliedAgainPct": 25
+      },
+      {
+        "text": "I work with Menlo Dental Transitions ...",
+        "used": 3,
+        "leadRepliedAgainPct": 0
+      },
+      {
+        "text": "Im with Menlo Dental Transitions. We help dental practice owners evaluate partnership or sale options and run a confidential process with strategic buyers (including DSOs) or doctor-to-doctor. Would you be open to a quick call to see if its relevant for you?",
+        "used": 3,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "I work with Menlo Dental Transitions. Would you be open to a quick call to see if its relevant for you?",
+        "used": 3,
+        "leadRepliedAgainPct": 100
+      },
+      {
+        "text": "Thanks for the reply. I work with Menlo Dental Transitions and we work with practice owners looking to transition. My website is www.menlotransitions.com. You can find me, my partners and all of our listings there. I sense you might be trying to determine the validity to this text, completely understandable, and the best way to do that is jump on a call so we can discuss. Of course, no pressure whatsoever. Thx",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "I work with Menlo Dental Transitions. Is there a good time to discuss?",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      },
+      {
+        "text": "My name is Mark, and I represent the sellers/practices referenced in my message. If its of interest, Id be happy to jump on a quick call. If not, no problem.",
+        "used": 2,
+        "leadRepliedAgainPct": 50
+      }
+    ]
+  }
+}

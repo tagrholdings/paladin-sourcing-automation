@@ -32,43 +32,121 @@
  * x-csrf-token, obtido via GET /api/v1/auth/csrf (que por sua vez exige
  * o cookie de sessao ja valido).
  *
- * LIMITACAO CONHECIDA (MVP): este modulo espera receber o cookie de
- * sessao pronto via PALADIN_SESSION_COOKIE (.env / Railway Variables),
- * copiado manualmente do DevTools (Application -> Cookies) depois de
- * logar no dashboard. Nao ha fluxo de login automatizado aqui ainda —
- * o cookie expira e precisa ser renovado manualmente de tempos em
- * tempos. Para producao de verdade, a evolucao natural e automatizar o
- * login (ex.: Playwright headless lendo PALADIN_EMAIL/PALADIN_SENHA de
- * variavel de ambiente, nunca hardcoded) e renovar o cookie sozinho
- * quando expirar. Ate la, se as chamadas comecarem a falhar com
- * 401/403, o cookie provavelmente expirou — renovar manualmente.
+ * LOGIN AUTOMATICO: se PALADIN_EMAIL e PALADIN_PASSWORD estiverem
+ * configurados (Railway Variables), o modulo faz login sozinho via
+ * POST /api/v1/auth/login {email, password, rememberMe} — endpoint e
+ * payload lidos do bundle JS publico do dashboard (nao do HAR). Isso
+ * acontece quando nao ha cookie nenhum ou quando uma chamada volta
+ * 401/403; o cookie novo fica so em memoria e a chamada e repetida uma
+ * vez. Se o login falhar (senha trocada, etc.), a sessao e marcada como
+ * expirada (ver lib/sessionState.js: pausa o webhook e avisa no Slack).
+ * Sem essas variaveis, vale o modo antigo: PALADIN_SESSION_COOKIE copiado
+ * manualmente do DevTools, que precisa ser renovado na mao.
  */
+
+const sessionState = require('../lib/sessionState');
 
 const BASE_URL = 'https://crm.paladinsourcing.com/api/v1';
 
-function getSessionCookie() {
-  const cookie = process.env.PALADIN_SESSION_COOKIE;
-  if (!cookie) {
-    throw new Error(
-      'PALADIN_SESSION_COOKIE nao configurado. Copie o cookie de sessao do DevTools ' +
-      '(logado em crm.paladinsourcing.com) e coloque em .env / Railway Variables. ' +
-      'Esse cookie expira periodicamente e precisa ser renovado manualmente (ver ' +
-      'comentario de topo deste arquivo).'
-    );
-  }
-  return cookie;
+// Cookie obtido pelo login automatico (so em memoria); tem prioridade sobre
+// PALADIN_SESSION_COOKIE.
+let loginCookie = null;
+let loginPromise = null;
+
+function hasCredentials() {
+  return Boolean(process.env.PALADIN_EMAIL && process.env.PALADIN_PASSWORD);
 }
+
+function parseSetCookies(res) {
+  const jar = new Map();
+  const list = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
+  list.forEach((c) => {
+    const [pair] = c.split(';');
+    const i = pair.indexOf('=');
+    if (i > 0) jar.set(pair.slice(0, i).trim(), pair.slice(i + 1).trim());
+  });
+  return jar;
+}
+
+const jarToCookie = (jar) => [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
+
+async function doLogin() {
+  const jar = new Map();
+  const headers = { 'content-type': 'application/json', accept: 'application/json, text/plain, */*' };
+  const body = JSON.stringify({
+    email: process.env.PALADIN_EMAIL.toLowerCase(),
+    password: process.env.PALADIN_PASSWORD,
+    rememberMe: true,
+  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetch(`${BASE_URL}/auth/login`, { method: 'POST', headers, body });
+    parseSetCookies(res).forEach((v, k) => jar.set(k, v));
+    if (res.status === 419 && attempt === 0) {
+      // Login exigiu CSRF: pega token + cookie csrf e repete.
+      const csrfRes = await fetch(`${BASE_URL}/auth/csrf`, { headers: jar.size ? { cookie: jarToCookie(jar) } : {} });
+      parseSetCookies(csrfRes).forEach((v, k) => jar.set(k, v));
+      const csrfJson = await csrfRes.json().catch(() => null);
+      if (!csrfJson?.data?.csrfToken) throw new Error('Login: nao foi possivel obter o CSRF token.');
+      headers['x-csrf-token'] = csrfJson.data.csrfToken;
+      headers.cookie = jarToCookie(jar);
+      continue;
+    }
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || json.success === false) {
+      throw new Error(`Login no Paladin falhou (status ${res.status}): ${JSON.stringify(json)}`);
+    }
+    if (![...jar.keys()].some((k) => /session/i.test(k))) {
+      throw new Error('Login no Paladin respondeu OK mas nao devolveu cookie de sessao.');
+    }
+    loginCookie = jarToCookie(jar);
+    sessionState.clear();
+    console.log('[paladin] Login automatico realizado com sucesso.');
+    return;
+  }
+  throw new Error('Login no Paladin falhou apos retentativa de CSRF.');
+}
+
+// Uma tentativa de login por vez, mesmo com varias chamadas expiradas juntas.
+async function login() {
+  if (!hasCredentials()) throw new Error('PALADIN_EMAIL / PALADIN_PASSWORD nao configurados.');
+  if (!loginPromise) {
+    loginPromise = doLogin().finally(() => { loginPromise = null; });
+  }
+  return loginPromise;
+}
+
+async function getSessionCookie() {
+  const cookie = loginCookie || process.env.PALADIN_SESSION_COOKIE;
+  if (cookie) return cookie;
+  if (hasCredentials()) {
+    try {
+      await login();
+    } catch (err) {
+      sessionState.markExpired(err.message);
+      throw err;
+    }
+    return loginCookie;
+  }
+  throw new Error(
+    'Nenhuma credencial do Paladin configurada. Defina PALADIN_EMAIL e PALADIN_PASSWORD ' +
+    '(login automatico, recomendado) ou PALADIN_SESSION_COOKIE (copiado do DevTools; expira).'
+  );
+}
+
+class AuthError extends Error {}
 
 // /auth/csrf devolve um token no body E seta um cookie "csrf" novo; os dois
 // formam um par (double-submit), entao o cookie antigo guardado em
 // PALADIN_SESSION_COOKIE nao serve — precisa ser substituido pelo novo.
 async function getCsrf() {
-  const sessionCookie = getSessionCookie();
+  const sessionCookie = await getSessionCookie();
   const res = await fetch(`${BASE_URL}/auth/csrf`, {
     headers: { cookie: sessionCookie },
   });
   if (!res.ok) {
-    throw new Error(`Falha ao obter CSRF token (status ${res.status}) — cookie de sessao provavelmente expirado.`);
+    const msg = `Falha ao obter CSRF token (status ${res.status}) — cookie de sessao provavelmente expirado.`;
+    if (res.status === 401 || res.status === 403) throw new AuthError(msg);
+    throw new Error(msg);
   }
   const json = await res.json();
   if (!json.success || !json.data || !json.data.csrfToken) {
@@ -82,8 +160,30 @@ async function getCsrf() {
   return { token: json.data.csrfToken, cookie };
 }
 
-async function authedRequest(path, { method = 'GET', body } = {}) {
-  const cookie = getSessionCookie();
+// Em 401/403 tenta relogar (se houver credenciais) e repete a chamada uma vez;
+// sem credenciais, ou se o login falhar, marca a sessao como expirada.
+async function authedRequest(path, opts = {}, retried = false) {
+  try {
+    return await doAuthedRequest(path, opts);
+  } catch (err) {
+    if (!(err instanceof AuthError)) throw err;
+    if (!retried && hasCredentials()) {
+      loginCookie = null;
+      try {
+        await login();
+      } catch (loginErr) {
+        sessionState.markExpired(loginErr.message);
+        throw loginErr;
+      }
+      return authedRequest(path, opts, true);
+    }
+    sessionState.markExpired(err.message);
+    throw err;
+  }
+}
+
+async function doAuthedRequest(path, { method = 'GET', body } = {}) {
+  const cookie = await getSessionCookie();
   const headers = {
     cookie,
     accept: 'application/json, text/plain, */*',
@@ -98,6 +198,9 @@ async function authedRequest(path, { method = 'GET', body } = {}) {
   }
   const res = await fetch(`${BASE_URL}${path}`, { method, headers, body: fetchBody });
   const json = await res.json().catch(() => null);
+  if (res.status === 401 || res.status === 403) {
+    throw new AuthError(`${method} ${path} retornou ${res.status}`);
+  }
   if (!res.ok || !json || json.success === false) {
     throw new Error(
       `Chamada ${method} ${path} falhou (status ${res.status}): ${JSON.stringify(json)}`
@@ -194,7 +297,39 @@ async function findContactById(contactId, { pageLimit = 100, maxPages = 20 } = {
   return null;
 }
 
+/**
+ * Mapa id -> nome das tags (o contato so traz os IDs das tags).
+ * GET /api/v1/tags, lido do bundle do dashboard e confirmado com chamada real.
+ * Cache curto em memoria para nao bater na API a cada clique.
+ */
+let tagCache = { at: 0, map: new Map() };
+async function getTagNameMap() {
+  if (Date.now() - tagCache.at < 10 * 60 * 1000) return tagCache.map;
+  const data = await authedRequest('/tags');
+  const list = Array.isArray(data) ? data : data?.tags || [];
+  tagCache = { at: Date.now(), map: new Map(list.map((t) => [t._id || t.id, t.name])) };
+  return tagCache.map;
+}
+
+/**
+ * Heartbeat: confirma que o cookie ainda vale (so um GET /auth/csrf).
+ * Marca a sessao como expirada se nao valer, e limpa o estado se voltou.
+ */
+async function checkSession() {
+  if (!loginCookie && !process.env.PALADIN_SESSION_COOKIE && !hasCredentials()) return;
+  try {
+    // authedRequest ja relogia sozinho (se houver credenciais) e marca a
+    // sessao como expirada se nao der.
+    await authedRequest('/auth/csrf');
+    sessionState.clear();
+  } catch (err) {
+    console.error('[session] Heartbeat falhou:', err.message);
+  }
+}
+
 module.exports = {
+  checkSession,
+  getTagNameMap,
   sendMessage,
   toggleStarred,
   toggleArchived,

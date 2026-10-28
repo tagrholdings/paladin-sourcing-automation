@@ -1,0 +1,104 @@
+{
+  "generatedAt": "2026-10-28T20:58:29.774Z",
+  "examples": {
+    "positive_yes": {
+      "leadSays": [
+        "yes",
+        "sure",
+        "ok",
+        "maybe",
+        "yes i would"
+      ],
+      "goodReplies": [
+        {
+          "text": "Great, what is the best time to reach you? I want to be respectful of your schedule.",
+          "used": 5,
+          "leadRepliedAgainPct": 100
+        },
+        {
+          "text": "Great, happy to jump on the phone and discuss. What is the best time to reach you?",
+          "used": 17,
+          "leadRepliedAgainPct": 65
+        },
+        {
+          "text": "Happy to schedule a call, is there a time that works better for you?",
+          "used": 29,
+          "leadRepliedAgainPct": 48
+        }
+      ]
+    },
+    "thanks_ack": {
+      "leadSays": [
+        "thank you",
+        "hi",
+        "thanks",
+        "hi mark what group are you with",
+        "hi sure"
+      ],
+      "goodReplies": [
+        {
+          "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+          "used": 6,
+          "leadRepliedAgainPct": 50
+        }
+      ]
+    },
+    "call_me_now": {
+      "leadSays": [
+        "now",
+        "i am available now",
+        "sure call me",
+        "call me",
+        "yes call me"
+      ],
+      "goodReplies": []
+    },
+    "buyer_investor": {
+      "leadSays": [
+        "buyer",
+        "investor",
+        "a buyer",
+        "yes a buyer",
+        "this is a dental hygiene only practice tell me more if you have a buyer that wou"
+      ],
+      "goodReplies": [
+        {
+          "text": "Great...would love to connect and discuss what that looks like. We'll reach out after patient hours? Looking forward to connecting..",
+          "used": 6,
+          "leadRepliedAgainPct": 50
+        },
+        {
+          "text": "Great...would love to connect and discuss. We'll reach out after patient hours..Looking forward to it.",
+          "used": 7,
+          "leadRepliedAgainPct": 29
+        }
+      ]
+    },
+    "who_is_this": {
+      "leadSays": [
+        "who is this",
+        "what company are you with",
+        "mark who",
+        "who are you with",
+        "what company do you work for"
+      ],
+      "goodReplies": [
+        {
+          "text": "Sure....I work with Menlo Dental Transitions. We represent sellers in most cases but can help with any part of a transition and have for a very long time.",
+          "used": 57,
+          "leadRepliedAgainPct": 25
+        },
+        {
+          "text": "This is David with Menlo Dental Transitions. I help dental practice owners evaluate partnership or sale options with strategic buyers/investors.",
+          "used": 11,
+          "leadRepliedAgainPct": 18
+        },
+        {
+          "text": "Im with Menlo Dental Transitions. We help dental practice owners evaluate a partnership or sale and run a confidential process with DSOs or private buyers. Would you be open to a quick call to see if its relevant for you?",
+          "used": 8,
+          "leadRepliedAgainPct": 13
+        }
+      ]
+    }
+  }
+}

@@ -24,7 +24,9 @@
  */
 const express = require('express');
 const { verifySlackSignature } = require('../lib/verifySlackSignature');
-const { sendMessage } = require('../services/paladinApiClient');
+const { sendMessage, findContactById, getTagNameMap } = require('../services/paladinApiClient');
+const { buildLeadCard } = require('../services/leadCard');
+const { postDm } = require('../services/slackDm');
 
 const router = express.Router();
 
@@ -55,12 +57,67 @@ router.post('/', async (req, res) => {
   if (payload.type !== 'block_actions') return;
 
   const action = (payload.actions || []).find((a) => a.action_id === 'send_reply');
-  if (!action) return;
+  if (action) {
+    handleSendReplyClick(action, payload).catch((err) => {
+      console.error('[slack-interactions] Erro ao processar clique de Send:', err);
+    });
+    return;
+  }
 
-  handleSendReplyClick(action, payload).catch((err) => {
-    console.error('[slack-interactions] Erro ao processar clique de Send:', err);
-  });
+  const leadAction = (payload.actions || []).find((a) => String(a.action_id).startsWith('send_as_lead_'));
+  if (leadAction) {
+    handleSendAsLeadClick(leadAction, payload).catch((err) => {
+      console.error('[slack-interactions] Erro ao processar clique de Send as lead:', err);
+    });
+  }
 });
+
+/**
+ * "Send as lead": monta o card (dados do contato + conversa inteira + advisor)
+ * e manda por DM para quem recebe as leads. O resultado e avisado como uma
+ * mensagem nova no canal (replace_original:false), sem mexer nos botoes.
+ */
+async function handleSendAsLeadClick(action, payload) {
+  const clickedBy = payload.user?.username || payload.user?.name || 'someone';
+  let data;
+  try {
+    data = JSON.parse(action.value);
+  } catch (err) {
+    await respond(payload.response_url, '🛑 Internal error: could not read button data.');
+    return;
+  }
+  const { contactId, advisor } = data;
+
+  try {
+    const contact = await findContactById(contactId);
+    if (!contact) {
+      await respond(payload.response_url, `🛑 *Could not send as lead*: contact not found in recent Paladin conversations. Forward it manually.`);
+      return;
+    }
+    // Tags sao so um enfeite do card: se falhar, manda sem elas.
+    const tagMap = await getTagNameMap().catch(() => null);
+    const card = buildLeadCard({ contact, advisor, sentBy: clickedBy, tagMap });
+    await postDm(card);
+    await respond(payload.response_url, `📤 *${clickedBy}* sent this lead to Chrysete as *${advisor}'s* lead.`);
+  } catch (err) {
+    console.error('[slack-interactions] send as lead falhou:', err.message);
+    await respond(payload.response_url, `🛑 *Failed to send as lead* (clicked by ${clickedBy}): ${err.message}\nForward it manually instead.`);
+  }
+}
+
+// Mensagem nova no canal (nao substitui a original, ao contrario de replaceMessage).
+async function respond(responseUrl, text) {
+  if (!responseUrl) return;
+  try {
+    await fetch(responseUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ response_type: 'in_channel', replace_original: false, text }),
+    });
+  } catch (err) {
+    console.error('[slack-interactions] Falha ao responder via response_url:', err);
+  }
+}
 
 async function handleSendReplyClick(action, payload) {
   let data;
@@ -78,7 +135,8 @@ async function handleSendReplyClick(action, payload) {
     await sendMessage(contactId, text);
     await replaceMessage(
       payload.response_url,
-      `✅ *Sent by ${clickedBy}:*\n>${text}`
+      `✅ *Sent by ${clickedBy}:*\n>${text}`,
+      keepLeadButtons(payload.message?.blocks, `✅ *Sent by ${clickedBy}:*\n>${text}`)
     );
   } catch (err) {
     console.error('[slack-interactions] sendMessage falhou:', err.message);
@@ -95,17 +153,36 @@ async function handleSendReplyClick(action, payload) {
  * o proprio Slack manda no payload de interacao. replace_original:true
  * remove os blocks antigos (incluindo o botao), evitando clique duplo.
  */
-async function replaceMessage(responseUrl, text) {
+async function replaceMessage(responseUrl, text, blocks) {
   if (!responseUrl) return;
   try {
     await fetch(responseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ replace_original: true, text }),
+      body: JSON.stringify(blocks ? { replace_original: true, text, blocks } : { replace_original: true, text }),
     });
   } catch (err) {
     console.error('[slack-interactions] Falha ao atualizar mensagem via response_url:', err);
   }
+}
+
+/**
+ * Depois do "Send", troca so o bloco do botao Send por "Sent by ..." e
+ * mantem o resto da mensagem (inclusive os botoes "Send as lead", que
+ * normalmente sao clicados depois de responder). Devolve null se a
+ * mensagem original nao tiver esses botoes (cai no replace simples).
+ */
+function keepLeadButtons(blocks, sentText) {
+  if (!Array.isArray(blocks)) return null;
+  const hasLeadButtons = blocks.some(
+    (b) => b.type === 'actions' && (b.elements || []).some((e) => String(e.action_id).startsWith('send_as_lead_'))
+  );
+  if (!hasLeadButtons) return null;
+  return blocks.map((b) =>
+    b.type === 'actions' && (b.elements || []).some((e) => e.action_id === 'send_reply')
+      ? { type: 'section', text: { type: 'mrkdwn', text: sentText } }
+      : b
+  );
 }
 
 module.exports = router;

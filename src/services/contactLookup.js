@@ -46,6 +46,9 @@ async function lookupContact(contactId) {
       // uma marcacao ja feita por outra mensagem do mesmo contato).
       starred: Boolean(contact.starred),
       archived: Boolean(contact.archived),
+      // Historico completo da conversa (a API devolve do mais novo pro mais
+      // antigo) — usado pelo classificador para sugerir respostas com contexto.
+      messages: Array.isArray(contact.messages) ? contact.messages : [],
       source: 'paladin_unofficial_api',
     };
   } catch (err) {

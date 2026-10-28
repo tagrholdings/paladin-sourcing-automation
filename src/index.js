@@ -61,4 +61,10 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`[startup] Servidor rodando na porta ${PORT}`);
+
+  // Heartbeat do cookie do Paladin: avisa no Slack (e pausa o webhook) assim
+  // que expirar, em vez de so descobrir quando chegar um lead.
+  const { checkSession } = require('./services/paladinApiClient');
+  checkSession();
+  setInterval(checkSession, 10 * 60 * 1000).unref();
 });

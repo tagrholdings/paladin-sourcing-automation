@@ -2,6 +2,8 @@
  * Envia notificacoes para um canal do Slack via Incoming Webhook.
  * Usa o fetch nativo do Node 18+ — nenhuma dependencia extra necessaria.
  */
+const { isLeadForwardingConfigured } = require('./slackDm');
+
 const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
 function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing, contactId }) {
@@ -86,6 +88,32 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
           elements: [{ type: 'mrkdwn', text: '⚠️ Suggested reply too long for a one-click Send button — reply manually in Paladin.' }],
         });
       }
+    }
+  }
+
+  // "Send as lead": um botao por advisor sugerido pela matriz. Em bloco
+  // separado do "Send" para sobreviver quando o "Send" e substituido por
+  // "Sent by ..." (ver routes/slackInteractions.js). O advisor vai no
+  // value porque routeLead pode ter efeito colateral (rodizio do AZ) e
+  // nao deve ser chamado de novo no clique.
+  if (contactId && category === 'positive' && isLeadForwardingConfigured()) {
+    const advisors = (routing?.advisors || []).slice(0, 5);
+    if (advisors.length > 0) {
+      blocks.push({
+        type: 'actions',
+        elements: advisors.map((advisor, i) => ({
+          type: 'button',
+          text: { type: 'plain_text', text: `📤 Send as lead → ${advisor}`, emoji: true },
+          action_id: `send_as_lead_${i}`,
+          value: JSON.stringify({ contactId, advisor }),
+          confirm: {
+            title: { type: 'plain_text', text: 'Send as lead?' },
+            text: { type: 'mrkdwn', text: `Forward this lead and conversation to Chrysete as *${advisor}'s* lead.` },
+            confirm: { type: 'plain_text', text: 'Send' },
+            deny: { type: 'plain_text', text: 'Cancel' },
+          },
+        })),
+      });
     }
   }
 

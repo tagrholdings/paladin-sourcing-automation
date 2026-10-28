@@ -1,6 +1,7 @@
 const express = require('express');
 const { verifyWebhookSignature } = require('../lib/verifySignature');
 const { alreadyProcessed, markProcessed } = require('../lib/idempotency');
+const sessionState = require('../lib/sessionState');
 const { classifyMessage } = require('../services/classifier');
 const { routeLead } = require('../services/routingMatrix');
 const { lookupContact } = require('../services/contactLookup');
@@ -30,6 +31,29 @@ async function safeToggleArchived(contactId) {
   }
 }
 
+const MAX_TRANSCRIPT_MESSAGES = 40;
+
+/**
+ * Monta a transcricao cronologica da conversa para o classificador.
+ * A API devolve as mensagens do mais novo pro mais antigo; a mensagem
+ * que acabou de chegar pode ou nao ja estar na lista (corrida com o
+ * webhook), entao ela e removida se for a mais recente e igual a `currentText`
+ * — o classificador ja recebe essa mensagem separadamente.
+ */
+function buildTranscript(messages, currentText) {
+  if (!Array.isArray(messages) || messages.length === 0) return null;
+  const ordered = [...messages].reverse(); // cronologico
+  const last = ordered[ordered.length - 1];
+  if (last && last.direction === 'inbound' && String(last.text || '').trim() === String(currentText || '').trim()) {
+    ordered.pop();
+  }
+  const lines = ordered
+    .slice(-MAX_TRANSCRIPT_MESSAGES)
+    .filter((m) => m.text)
+    .map((m) => `${m.direction === 'outbound' ? 'Us (Mark/Rob)' : 'Lead'}: ${m.text}`);
+  return lines.length ? lines.join('\n') : null;
+}
+
 const router = express.Router();
 
 router.post('/', async (req, res) => {
@@ -50,6 +74,12 @@ router.post('/', async (req, res) => {
   if (process.env.PAUSED === 'true') {
     console.log('[webhook] Automacao pausada (PAUSED=true) — evento nao processado.');
     return res.status(503).json({ error: 'paused' });
+  }
+
+  // Cookie do Paladin expirado: pausa ate renovar (ver lib/sessionState.js).
+  if (sessionState.isExpired()) {
+    console.log('[webhook] Sessao do Paladin expirada — evento nao processado.');
+    return res.status(503).json({ error: 'paladin_session_expired' });
   }
 
   // Responde 2xx imediatamente (dentro dos 10s exigidos pela Paladin)
@@ -100,7 +130,14 @@ async function processInboundMessage(data) {
     return;
   }
 
-  const classification = await classifyMessage({ leadText: text });
+  // Busca o contato antes de classificar para dar a conversa inteira ao
+  // classificador (a resposta sugerida depende do que ja foi dito).
+  const contact = await lookupContact(contactId);
+
+  const classification = await classifyMessage({
+    leadText: text,
+    priorContext: buildTranscript(contact.messages, text),
+  });
 
   if (messageId) markProcessed(messageId);
 
@@ -110,16 +147,11 @@ async function processInboundMessage(data) {
     // visao principal. So chama o toggle se ainda nao estiver
     // arquivada (e um toggle, nao um set — chamar sem checar
     // desarquivaria uma conversa ja arquivada por outra mensagem).
-    const contactForArchive = await lookupContact(contactId);
-    if (contactForArchive.archived === false) {
+    if (contact.archived === false) {
       await safeToggleArchived(contactId);
     }
     return;
   }
-
-  // positive ou attention: busca dados do contato (hoje, placeholder —
-  // ver contactLookup.js) e tenta sugerir um roteamento.
-  const contact = await lookupContact(contactId);
 
   // Auto-star: so para "positive" (lead com interesse real confirmado),
   // e so se ainda nao estiver starred (mesmo motivo do archive acima —

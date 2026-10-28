@@ -6,7 +6,10 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "export-conversations": "node scripts/export-conversations.js",
+    "build-response-bank": "node scripts/build-response-bank.js",
+    "refresh-responses": "node scripts/export-conversations.js && node scripts/build-response-bank.js"
   },
   "engines": {
     "node": ">=18.0.0"
