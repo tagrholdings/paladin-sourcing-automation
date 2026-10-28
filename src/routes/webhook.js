@@ -5,6 +5,30 @@ const { classifyMessage } = require('../services/classifier');
 const { routeLead } = require('../services/routingMatrix');
 const { lookupContact } = require('../services/contactLookup');
 const { notifyLead, notifyError } = require('../services/slack');
+const { toggleStarred, toggleArchived } = require('../services/paladinApiClient');
+
+/**
+ * Star/archive automaticos via a API nao oficial do Paladin
+ * (paladinApiClient.js). "Best effort": se PALADIN_SESSION_COOKIE nao
+ * estiver configurado ou a sessao tiver expirado, so loga o erro e
+ * segue o fluxo normalmente — nunca deixa isso quebrar a notificacao
+ * no Slack, que e a parte mais importante.
+ */
+async function safeToggleStarred(contactId) {
+  try {
+    await toggleStarred(contactId);
+  } catch (err) {
+    console.error(`[webhook] Falha ao marcar conversa ${contactId} como starred:`, err.message);
+  }
+}
+
+async function safeToggleArchived(contactId) {
+  try {
+    await toggleArchived(contactId);
+  } catch (err) {
+    console.error(`[webhook] Falha ao arquivar conversa ${contactId}:`, err.message);
+  }
+}
 
 const router = express.Router();
 
@@ -82,12 +106,28 @@ async function processInboundMessage(data) {
 
   if (classification.category === 'silent') {
     console.log(`[webhook] Lead ${from} classificada como silenciosa: ${classification.reasoning}`);
+    // Auto-archive: tira conversas mortas (opt-out, recusa clara) da
+    // visao principal. So chama o toggle se ainda nao estiver
+    // arquivada (e um toggle, nao um set — chamar sem checar
+    // desarquivaria uma conversa ja arquivada por outra mensagem).
+    const contactForArchive = await lookupContact(contactId);
+    if (contactForArchive.archived === false) {
+      await safeToggleArchived(contactId);
+    }
     return;
   }
 
   // positive ou attention: busca dados do contato (hoje, placeholder —
   // ver contactLookup.js) e tenta sugerir um roteamento.
   const contact = await lookupContact(contactId);
+
+  // Auto-star: so para "positive" (lead com interesse real confirmado),
+  // e so se ainda nao estiver starred (mesmo motivo do archive acima —
+  // e toggle, nao set).
+  if (classification.category === 'positive' && contact.starred === false) {
+    await safeToggleStarred(contactId);
+  }
+
   let routing = null;
   if (contact.state) {
     routing = routeLead({
@@ -110,6 +150,7 @@ async function processInboundMessage(data) {
     leadText: text,
     fromPhone: from,
     routing,
+    contactId,
   });
 }
 

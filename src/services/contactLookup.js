@@ -40,6 +40,12 @@ async function lookupContact(contactId) {
       occupation: contact.occupation || null,
       bio: contact.company || null, // campo "company" da API e na verdade a bio/descricao longa
       isLargeOrMultiPractice: null, // ver comentario acima - continua exigindo confirmacao humana
+      // starred/archived vem direto da API — usados em webhook.js para
+      // decidir se vale a pena chamar toggleStarred/toggleArchived (sao
+      // toggles, nao sets; chamar sem checar o estado atual desfaria
+      // uma marcacao ja feita por outra mensagem do mesmo contato).
+      starred: Boolean(contact.starred),
+      archived: Boolean(contact.archived),
       source: 'paladin_unofficial_api',
     };
   } catch (err) {
@@ -50,6 +56,8 @@ async function lookupContact(contactId) {
       city: null,
       state: null,
       isLargeOrMultiPractice: null,
+      starred: null, // desconhecido — webhook.js nao deve tentar toggle sem saber o estado atual
+      archived: null,
       source: 'lookup_error',
     };
   }

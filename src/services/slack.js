@@ -4,7 +4,7 @@
  */
 const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
-function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing }) {
+function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing, contactId }) {
   const icon = category === 'positive' ? '📩' : '⚠️';
   const label = category === 'positive' ? 'Positive lead' : 'Needs attention';
 
@@ -53,6 +53,40 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
       type: 'section',
       text: { type: 'mrkdwn', text: `*Suggested reply:*\n${suggestedReply}` },
     });
+
+    // Botao "Send" so aparece se tivermos contactId (sem ele nao da
+    // pra chamar a API do Paladin) e a mensagem couber no limite de
+    // 2000 caracteres do campo "value" de um botao do Slack — ambos
+    // praticamente sempre verdade pra respostas de SMS, mas melhor
+    // nao quebrar silenciosamente se algum dia nao for.
+    if (contactId) {
+      const actionValue = JSON.stringify({ contactId, text: suggestedReply });
+      if (actionValue.length <= 2000) {
+        blocks.push({
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: { type: 'plain_text', text: '✅ Send', emoji: true },
+              style: 'primary',
+              action_id: 'send_reply',
+              value: actionValue,
+              confirm: {
+                title: { type: 'plain_text', text: 'Send this reply?' },
+                text: { type: 'mrkdwn', text: `To: ${fromPhone}\n\n${suggestedReply}` },
+                confirm: { type: 'plain_text', text: 'Send' },
+                deny: { type: 'plain_text', text: 'Cancel' },
+              },
+            },
+          ],
+        });
+      } else {
+        blocks.push({
+          type: 'context',
+          elements: [{ type: 'mrkdwn', text: '⚠️ Suggested reply too long for a one-click Send button — reply manually in Paladin.' }],
+        });
+      }
+    }
   }
 
   return blocks;

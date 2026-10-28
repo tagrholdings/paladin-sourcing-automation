@@ -25,8 +25,19 @@ Nenhuma credencial deve estar no código. Tudo vem de variáveis de ambiente
   roteamento da Menlo (quando a localização do lead é conhecida).
 - Manda uma notificação formatada no Slack só para `positive` e
   `attention` — `silent` só é logado.
-- Sugere um rascunho de resposta (você ainda entra no CRM do Paladin e
-  envia manualmente).
+- Sugere um rascunho de resposta.
+- Para leads `positive`, marca a conversa como starred automaticamente
+  no Paladin (ajuda a achar os leads quentes direto no dashboard deles).
+  Leads `silent` são arquivados automaticamente. Os dois são "best
+  effort": se falhar (ex.: cookie de sessão expirado), só loga o erro e
+  segue o fluxo normal, sem travar a notificação do Slack.
+- A notificação do Slack vem com um **botão "✅ Send"** ao lado da
+  resposta sugerida (com confirmação antes de enviar de verdade). Ao
+  clicar, manda a mensagem pelo Paladin sem precisar abrir o CRM. Exige
+  configurar Interactivity no app do Slack — ver
+  `src/routes/slackInteractions.js` para o passo a passo. Sem essa
+  configuração, o botão aparece mas o clique falha silenciosamente (fica
+  só a sugestão de texto, como antes).
 
 **Faz (via API não oficial, desde 28/10/2026):**
 - **Envia mensagens, star/archive de conversas, e busca dados do contato**
@@ -128,27 +139,46 @@ webhook.
 Se o workspace for de uma organização (não pessoal), a criação do app pode
 pedir aprovação de um administrador do workspace.
 
+### Ativando o botão "Send" (opcional)
+
+O app criado acima já serve de base — não precisa criar outro:
+
+1. No mesmo app, menu lateral → **Interactivity & Shortcuts** → ativar o toggle.
+2. Em **Request URL**, colocar `https://<seu-dominio-railway>/slack/interactions`.
+3. Salvar.
+4. Menu lateral → **Basic Information** → seção **App Credentials** →
+   copiar o **Signing Secret** e colocar em `SLACK_SIGNING_SECRET` nas
+   Variables do Railway.
+
+Não precisa de Bot Token nem de escopos extras — a confirmação do clique
+(trocar o botão por "✅ Sent" ou mostrar erro) usa o `response_url` que o
+próprio Slack manda a cada interação, o que funciona só com Incoming
+Webhook + Interactivity.
+
 ## Estrutura do projeto
 
 ```
 src/
-  index.js                 # bootstrap do Express, checa env vars obrigatórias
-  routes/webhook.js         # recebe o POST /webhook, orquestra o fluxo
-  lib/verifySignature.js    # verificação HMAC-SHA256
-  lib/idempotency.js        # dedupe de retentativas (em memória)
-  services/classifier.js    # classificação via Gemini
-  services/routingMatrix.js # matriz de roteamento da Menlo
-  services/contactLookup.js # placeholder — dados do contato (nome/cidade/estado)
-  services/slack.js         # envio das notificações
+  index.js                     # bootstrap do Express, checa env vars obrigatórias
+  routes/webhook.js             # recebe o POST /webhook, orquestra o fluxo
+  routes/slackInteractions.js   # recebe cliques do botao "Send" no Slack
+  lib/verifySignature.js        # verificação HMAC-SHA256 (webhook Paladin)
+  lib/verifySlackSignature.js   # verificação de assinatura (interactivity Slack)
+  lib/idempotency.js            # dedupe de retentativas (em memória)
+  services/classifier.js        # classificação via Gemini
+  services/routingMatrix.js     # matriz de roteamento da Menlo
+  services/contactLookup.js     # busca dados do contato (via paladinApiClient)
+  services/paladinApiClient.js  # cliente NAO OFICIAL da API do Paladin (engenharia reversa)
+  services/slack.js             # envio das notificações
 data/
-  az-rotation-counter.json  # gerado em runtime, não versionado
+  az-rotation-counter.json      # gerado em runtime, não versionado
 ```
 
 ## Próximos passos sugeridos
 
-1. Confirmar com o suporte da Paladin se existe uma API de contatos (nome,
-   cidade, estado por `contactId`) — isso é o que falta para o roteamento
-   funcionar automaticamente na maioria dos leads.
+1. Se o suporte da Paladin responder com uma API oficial de contatos/envio/
+   star/archive, migrar `paladinApiClient.js` para ela — o cliente atual
+   não tem garantia de estabilidade (engenharia reversa do frontend deles).
 2. Decidir junto ao gestor as regiões não cobertas pela matriz original
    (Havaí, Virgínia, West Virginia, Oklahoma, etc.) e atualizar
    `routingMatrix.js`.
