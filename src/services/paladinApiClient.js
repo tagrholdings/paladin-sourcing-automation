@@ -59,9 +59,13 @@ function getSessionCookie() {
   return cookie;
 }
 
-async function getCsrfToken() {
+// /auth/csrf devolve um token no body E seta um cookie "csrf" novo; os dois
+// formam um par (double-submit), entao o cookie antigo guardado em
+// PALADIN_SESSION_COOKIE nao serve — precisa ser substituido pelo novo.
+async function getCsrf() {
+  const sessionCookie = getSessionCookie();
   const res = await fetch(`${BASE_URL}/auth/csrf`, {
-    headers: { cookie: getSessionCookie() },
+    headers: { cookie: sessionCookie },
   });
   if (!res.ok) {
     throw new Error(`Falha ao obter CSRF token (status ${res.status}) — cookie de sessao provavelmente expirado.`);
@@ -70,7 +74,12 @@ async function getCsrfToken() {
   if (!json.success || !json.data || !json.data.csrfToken) {
     throw new Error('Resposta inesperada de /auth/csrf: ' + JSON.stringify(json));
   }
-  return json.data.csrfToken;
+  const setCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
+  const newCsrf = setCookies.map((c) => c.split(';')[0]).find((c) => c.startsWith('csrf='));
+  const cookie = newCsrf
+    ? [...sessionCookie.split(';').map((s) => s.trim()).filter((c) => c && !c.startsWith('csrf=')), newCsrf].join('; ')
+    : sessionCookie;
+  return { token: json.data.csrfToken, cookie };
 }
 
 async function authedRequest(path, { method = 'GET', body } = {}) {
@@ -81,8 +90,9 @@ async function authedRequest(path, { method = 'GET', body } = {}) {
   };
   let fetchBody;
   if (method !== 'GET') {
-    const csrfToken = await getCsrfToken();
-    headers['x-csrf-token'] = csrfToken;
+    const csrf = await getCsrf();
+    headers.cookie = csrf.cookie;
+    headers['x-csrf-token'] = csrf.token;
     headers['content-type'] = 'application/json';
     fetchBody = JSON.stringify(body ?? {});
   }
