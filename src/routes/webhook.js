@@ -18,8 +18,10 @@ const { toggleStarred, toggleArchived } = require('../services/paladinApiClient'
 async function safeToggleStarred(contactId) {
   try {
     await toggleStarred(contactId);
+    return true;
   } catch (err) {
     console.error(`[webhook] Falha ao marcar conversa ${contactId} como starred:`, err.message);
+    return false;
   }
 }
 
@@ -156,8 +158,9 @@ async function processInboundMessage(data) {
   // Auto-star: so para "positive" (lead com interesse real confirmado),
   // e so se ainda nao estiver starred (mesmo motivo do archive acima —
   // e toggle, nao set).
+  let starredNow = contact.starred; // true/false/null (null = lookup falhou)
   if (classification.category === 'positive' && contact.starred === false) {
-    await safeToggleStarred(contactId);
+    starredNow = (await safeToggleStarred(contactId)) ? true : false;
   }
 
   let routing = null;
@@ -171,7 +174,12 @@ async function processInboundMessage(data) {
     routing = {
       advisors: [],
       confidence: 'unresolved',
-      note: 'Contact location unknown (the webhook does not include it). Confirm manually in the Paladin CRM before routing.',
+      note:
+        contact.source === 'lookup_error'
+          ? 'Could not load this contact from Paladin (session/login problem — check the automation alerts). Confirm the location manually in the Paladin CRM before routing.'
+          : contact.source === 'not_found_in_recent_conversations'
+            ? 'Contact not found in Paladin recent conversations. Confirm the location manually in the Paladin CRM before routing.'
+            : 'Contact has no state on file in Paladin. Confirm the location manually in the Paladin CRM before routing.',
     };
   }
 
@@ -183,6 +191,8 @@ async function processInboundMessage(data) {
     fromPhone: from,
     routing,
     contactId,
+    starred: starredNow,
+    archived: contact.archived,
   });
 }
 

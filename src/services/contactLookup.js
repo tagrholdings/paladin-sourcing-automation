@@ -19,6 +19,30 @@
  */
 const { findContactById } = require('./paladinApiClient');
 
+const US_STATE_CODES = new Set((
+  'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY ' +
+  'NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY'
+).split(' '));
+
+/**
+ * Alguns contatos vem do Paladin sem o campo "state" e com o estado colado
+ * no fim do "city" (ex.: city "Mount Juliet TN"). Sem isso o roteamento
+ * ficava "unresolved" mesmo com a localizacao conhecida.
+ */
+function resolveLocation(contact) {
+  let state = contact.state ? String(contact.state).trim().toUpperCase() : null;
+  let city = contact.city ? String(contact.city).trim() : null;
+  if (state && !US_STATE_CODES.has(state)) state = null;
+  if (!state && city) {
+    const m = city.match(/^(.*?)[,\s]+([A-Za-z]{2})$/);
+    if (m && US_STATE_CODES.has(m[2].toUpperCase())) {
+      state = m[2].toUpperCase();
+      city = m[1].trim() || null;
+    }
+  }
+  return { city, state };
+}
+
 async function lookupContact(contactId) {
   try {
     const contact = await findContactById(contactId);
@@ -32,11 +56,12 @@ async function lookupContact(contactId) {
         source: 'not_found_in_recent_conversations',
       };
     }
+    const { city, state } = resolveLocation(contact);
     return {
       contactId,
       name: [contact.firstName, contact.lastName].filter(Boolean).join(' ') || null,
-      city: contact.city || null,
-      state: contact.state || null,
+      city,
+      state,
       occupation: contact.occupation || null,
       bio: contact.company || null, // campo "company" da API e na verdade a bio/descricao longa
       isLargeOrMultiPractice: null, // ver comentario acima - continua exigindo confirmacao humana
@@ -66,4 +91,4 @@ async function lookupContact(contactId) {
   }
 }
 
-module.exports = { lookupContact };
+module.exports = { lookupContact, resolveLocation };

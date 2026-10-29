@@ -6,7 +6,21 @@ const { isLeadForwardingConfigured } = require('./slackDm');
 
 const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
-function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing, contactId }) {
+// starred/archived: true/false se conhecido; null/undefined se o lookup falhou
+// (rotulo neutro — o clique mostra o estado real devolvido pelo Paladin).
+const starredLabel = (starred) => (starred ? '⭐ Starred — click to unstar' : '⭐ Star');
+const archivedLabel = (archived) => (archived ? '🗄️ Archived — click to unarchive' : '🗄️ Archive');
+
+function toggleButton(actionId, contactId, label) {
+  return {
+    type: 'button',
+    text: { type: 'plain_text', text: label, emoji: true },
+    action_id: actionId,
+    value: JSON.stringify({ contactId }),
+  };
+}
+
+function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing, contactId, starred, archived }) {
   const icon = category === 'positive' ? '📩' : '⚠️';
   const label = category === 'positive' ? 'Positive lead' : 'Needs attention';
 
@@ -55,32 +69,30 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
       type: 'section',
       text: { type: 'mrkdwn', text: `*Suggested reply:*\n${suggestedReply}` },
     });
+  }
 
-    // Botao "Send" so aparece se tivermos contactId (sem ele nao da
-    // pra chamar a API do Paladin) e a mensagem couber no limite de
-    // 2000 caracteres do campo "value" de um botao do Slack — ambos
-    // praticamente sempre verdade pra respostas de SMS, mas melhor
-    // nao quebrar silenciosamente se algum dia nao for.
-    if (contactId) {
+  // Linha de botoes: "Send" (se houver sugestao) + Star (positiva) ou
+  // Archive (nao positiva). Todos exigem contactId (sem ele nao da pra
+  // chamar a API do Paladin). O "Send" tambem precisa caber no limite de
+  // 2000 caracteres do campo "value" de um botao do Slack — praticamente
+  // sempre verdade pra SMS, mas melhor nao quebrar silenciosamente.
+  if (contactId) {
+    const elements = [];
+    if (suggestedReply) {
       const actionValue = JSON.stringify({ contactId, text: suggestedReply });
       if (actionValue.length <= 2000) {
-        blocks.push({
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: { type: 'plain_text', text: '✅ Send', emoji: true },
-              style: 'primary',
-              action_id: 'send_reply',
-              value: actionValue,
-              confirm: {
-                title: { type: 'plain_text', text: 'Send this reply?' },
-                text: { type: 'mrkdwn', text: `To: ${fromPhone}\n\n${suggestedReply}` },
-                confirm: { type: 'plain_text', text: 'Send' },
-                deny: { type: 'plain_text', text: 'Cancel' },
-              },
-            },
-          ],
+        elements.push({
+          type: 'button',
+          text: { type: 'plain_text', text: '✅ Send', emoji: true },
+          style: 'primary',
+          action_id: 'send_reply',
+          value: actionValue,
+          confirm: {
+            title: { type: 'plain_text', text: 'Send this reply?' },
+            text: { type: 'mrkdwn', text: `To: ${fromPhone}\n\n${suggestedReply}` },
+            confirm: { type: 'plain_text', text: 'Send' },
+            deny: { type: 'plain_text', text: 'Cancel' },
+          },
         });
       } else {
         blocks.push({
@@ -89,6 +101,14 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
         });
       }
     }
+    // Star e Archive sao toggles no Paladin; o rotulo reflete o estado
+    // atual (conhecido pelo lookup) e e atualizado apos o clique.
+    elements.push(
+      category === 'positive'
+        ? toggleButton('toggle_star', contactId, starredLabel(starred))
+        : toggleButton('toggle_archive', contactId, archivedLabel(archived))
+    );
+    blocks.push({ type: 'actions', elements });
   }
 
   // "Send as lead": um botao por advisor sugerido pela matriz. Em bloco
@@ -170,4 +190,4 @@ async function notifyError(contextLabel, error) {
   }
 }
 
-module.exports = { notifyLead, notifyError };
+module.exports = { notifyLead, notifyError, starredLabel, archivedLabel };

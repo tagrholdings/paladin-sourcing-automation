@@ -11,25 +11,20 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 require('dotenv').config();
 
-const BASE = 'https://crm.paladinsourcing.com/api/v1';
+// Usa o cliente do Paladin: faz login sozinho (PALADIN_EMAIL/PASSWORD) quando preciso.
+const { authedRequest } = require('../src/services/paladinApiClient');
+
 const OUT = path.join(__dirname, '..', 'data', 'conversations.json');
 const FILTERS = ['recentOnly', 'starredOnly', 'unreadOnly', 'none'];
 
 async function fetchAllContacts() {
-  if (!process.env.PALADIN_SESSION_COOKIE) throw new Error('PALADIN_SESSION_COOKIE nao configurado.');
   const all = new Map();
   for (const flt of FILTERS) {
     for (let page = 1; page <= 500; page += 1) {
       const q = flt === 'none' ? '' : `&${flt}=true`;
-      const res = await fetch(`${BASE}/conversations?page=${page}&limit=100${q}&sortBy=lastMessageAt&sortOrder=desc`, {
-        headers: { cookie: process.env.PALADIN_SESSION_COOKIE, accept: 'application/json' },
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json || json.success === false) {
-        throw new Error(`Falha ao listar conversas (${flt}, pagina ${page}, status ${res.status}) — cookie expirado?`);
-      }
-      for (const c of json.data.contacts || []) all.set(c.id, c);
-      if (!json.data.hasMore) break;
+      const data = await authedRequest(`/conversations?page=${page}&limit=100${q}&sortBy=lastMessageAt&sortOrder=desc`);
+      for (const c of data.contacts || []) all.set(c.id, c);
+      if (!data.hasMore) break;
     }
   }
   return [...all.values()];

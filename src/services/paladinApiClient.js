@@ -320,7 +320,9 @@ async function checkSession() {
   try {
     // authedRequest ja relogia sozinho (se houver credenciais) e marca a
     // sessao como expirada se nao der.
-    await authedRequest('/auth/csrf');
+    // /auth/csrf responde 200 mesmo com cookie vencido; so /auth/validate
+    // exige sessao de verdade (401 se expirou).
+    await authedRequest('/auth/validate');
     sessionState.clear();
   } catch (err) {
     console.error('[session] Heartbeat falhou:', err.message);
@@ -328,6 +330,7 @@ async function checkSession() {
 }
 
 module.exports = {
+  authedRequest,
   checkSession,
   getTagNameMap,
   sendMessage,

@@ -24,7 +24,8 @@
  */
 const express = require('express');
 const { verifySlackSignature } = require('../lib/verifySlackSignature');
-const { sendMessage, findContactById, getTagNameMap } = require('../services/paladinApiClient');
+const { sendMessage, findContactById, getTagNameMap, toggleStarred, toggleArchived } = require('../services/paladinApiClient');
+const { starredLabel, archivedLabel } = require('../services/slack');
 const { buildLeadCard } = require('../services/leadCard');
 const { postDm } = require('../services/slackDm');
 
@@ -64,6 +65,14 @@ router.post('/', async (req, res) => {
     return;
   }
 
+  const toggleAction = (payload.actions || []).find((a) => a.action_id === 'toggle_star' || a.action_id === 'toggle_archive');
+  if (toggleAction) {
+    handleToggleClick(toggleAction, payload).catch((err) => {
+      console.error('[slack-interactions] Erro ao processar clique de Star/Archive:', err);
+    });
+    return;
+  }
+
   const leadAction = (payload.actions || []).find((a) => String(a.action_id).startsWith('send_as_lead_'));
   if (leadAction) {
     handleSendAsLeadClick(leadAction, payload).catch((err) => {
@@ -71,6 +80,42 @@ router.post('/', async (req, res) => {
     });
   }
 });
+
+/**
+ * Star/Archive: chama o toggle do Paladin e atualiza so o rotulo do botao
+ * na propria mensagem (o resto — inclusive os outros botoes — fica igual).
+ * Como e um toggle, o estado real vem na resposta do Paladin.
+ */
+async function handleToggleClick(action, payload) {
+  const clickedBy = payload.user?.username || payload.user?.name || 'someone';
+  const isStar = action.action_id === 'toggle_star';
+  let contactId;
+  try {
+    ({ contactId } = JSON.parse(action.value));
+  } catch (err) {
+    await respond(payload.response_url, '🛑 Internal error: could not read button data.');
+    return;
+  }
+
+  try {
+    const result = isStar ? await toggleStarred(contactId) : await toggleArchived(contactId);
+    const label = isStar ? starredLabel(result.starred) : archivedLabel(result.archived);
+    const blocks = (payload.message?.blocks || []).map((b) =>
+      b.type === 'actions'
+        ? {
+            ...b,
+            elements: (b.elements || []).map((e) =>
+              e.action_id === action.action_id ? { ...e, text: { type: 'plain_text', text: label, emoji: true } } : e
+            ),
+          }
+        : b
+    );
+    await replaceMessage(payload.response_url, payload.message?.text || 'Lead update', blocks);
+  } catch (err) {
+    console.error('[slack-interactions] toggle falhou:', err.message);
+    await respond(payload.response_url, `🛑 *Failed to ${isStar ? 'star' : 'archive'}* (clicked by ${clickedBy}): ${err.message}`);
+  }
+}
 
 /**
  * "Send as lead": monta o card (dados do contato + conversa inteira + advisor)
@@ -136,7 +181,7 @@ async function handleSendReplyClick(action, payload) {
     await replaceMessage(
       payload.response_url,
       `✅ *Sent by ${clickedBy}:*\n>${text}`,
-      keepLeadButtons(payload.message?.blocks, `✅ *Sent by ${clickedBy}:*\n>${text}`)
+      afterSendBlocks(payload.message?.blocks, `✅ *Sent by ${clickedBy}:*\n>${text}`)
     );
   } catch (err) {
     console.error('[slack-interactions] sendMessage falhou:', err.message);
@@ -167,22 +212,24 @@ async function replaceMessage(responseUrl, text, blocks) {
 }
 
 /**
- * Depois do "Send", troca so o bloco do botao Send por "Sent by ..." e
- * mantem o resto da mensagem (inclusive os botoes "Send as lead", que
- * normalmente sao clicados depois de responder). Devolve null se a
- * mensagem original nao tiver esses botoes (cai no replace simples).
+ * Depois do "Send", tira so o botao Send e poe "Sent by ..." no lugar; os
+ * outros botoes da mensagem (Star/Archive, "Send as lead", que normalmente
+ * sao clicados depois de responder) continuam la. Devolve null se a
+ * mensagem original nao veio com blocks (cai no replace so com texto).
  */
-function keepLeadButtons(blocks, sentText) {
+function afterSendBlocks(blocks, sentText) {
   if (!Array.isArray(blocks)) return null;
-  const hasLeadButtons = blocks.some(
-    (b) => b.type === 'actions' && (b.elements || []).some((e) => String(e.action_id).startsWith('send_as_lead_'))
-  );
-  if (!hasLeadButtons) return null;
-  return blocks.map((b) =>
-    b.type === 'actions' && (b.elements || []).some((e) => e.action_id === 'send_reply')
-      ? { type: 'section', text: { type: 'mrkdwn', text: sentText } }
-      : b
-  );
+  const out = [];
+  blocks.forEach((b) => {
+    if (b.type === 'actions' && (b.elements || []).some((e) => e.action_id === 'send_reply')) {
+      out.push({ type: 'section', text: { type: 'mrkdwn', text: sentText } });
+      const rest = b.elements.filter((e) => e.action_id !== 'send_reply');
+      if (rest.length) out.push({ ...b, elements: rest });
+    } else {
+      out.push(b);
+    }
+  });
+  return out;
 }
 
 module.exports = router;
