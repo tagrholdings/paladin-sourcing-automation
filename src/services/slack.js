@@ -2,7 +2,8 @@
  * Envia notificacoes para um canal do Slack via Incoming Webhook.
  * Usa o fetch nativo do Node 18+ — nenhuma dependencia extra necessaria.
  */
-const { isLeadForwardingConfigured } = require('./slackDm');
+const { isLeadForwardingConfigured, isModalConfigured } = require('./slackDm');
+const { historyBlocks } = require('./leadCard');
 
 const WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL;
 
@@ -20,29 +21,49 @@ function toggleButton(actionId, contactId, label) {
   };
 }
 
-function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone, routing, contactId, starred, archived }) {
-  const icon = category === 'positive' ? '📩' : '⚠️';
-  const label = category === 'positive' ? 'Positive lead' : 'Needs attention';
+function buildBlocks({
+  category, reasoning, suggestedReply, leadText, fromPhone, routing, contactId, starred, archived, messages, leadName,
+}) {
+  const isPositive = category === 'positive';
+  const icon = isPositive ? '📩' : '⚠️';
+  const label = isPositive ? 'Positive lead' : 'Needs attention';
 
   const blocks = [
     {
       type: 'header',
       text: { type: 'plain_text', text: `${icon} ${label}`, emoji: true },
     },
-    {
-      type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: `*From:*\n${fromPhone}` },
-        { type: 'mrkdwn', text: `*Reason:*\n${reasoning}` },
-      ],
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: `*Lead message:*\n>${leadText}` },
-    },
   ];
 
-  if (routing) {
+  // Lead positiva: o historico completo substitui "Reason"/"Lead message"
+  // (entra depois do roteamento, abaixo). Se nao houver historico (lookup
+  // falhou), cai no texto da mensagem recebida.
+  const history = isPositive
+    ? historyBlocks({ messages, leadName, currentText: leadText, maxBlocks: 28 })
+    : null;
+
+  if (isPositive) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*From:*\n${fromPhone}` } });
+    if (!history) {
+      blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*Lead message:*\n>${leadText}` } });
+    }
+  } else {
+    blocks.push(
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*From:*\n${fromPhone}` },
+          { type: 'mrkdwn', text: `*Reason:*\n${reasoning}` },
+        ],
+      },
+      { type: 'section', text: { type: 'mrkdwn', text: `*Lead message:*\n>${leadText}` } }
+    );
+  }
+
+  // Negativa sem resposta (so Archive): advisor e regra zero nao se aplicam.
+  const showRouting = isPositive || Boolean(suggestedReply);
+
+  if (routing && showRouting) {
     const flag = routing.confidence === 'explicit' ? '' : ' ⚠️';
     const advisorText = routing.advisors.length > 0 ? routing.advisors.join(' → ') : 'none (see note)';
     blocks.push({
@@ -54,15 +75,19 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
     });
   }
 
-  blocks.push({
-    type: 'context',
-    elements: [
-      {
-        type: 'mrkdwn',
-        text: '⚠️ Confirm rule zero (existing relationship) in Pipedrive before sending.',
-      },
-    ],
-  });
+  if (showRouting) {
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: '⚠️ Confirm rule zero (existing relationship) in Pipedrive before sending.',
+        },
+      ],
+    });
+  }
+
+  if (history) blocks.push(...history);
 
   if (suggestedReply) {
     blocks.push({
@@ -71,16 +96,23 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
     });
   }
 
-  // Linha de botoes: "Send" (se houver sugestao) + Star (positiva) ou
-  // Archive (nao positiva). Todos exigem contactId (sem ele nao da pra
-  // chamar a API do Paladin). O "Send" tambem precisa caber no limite de
-  // 2000 caracteres do campo "value" de um botao do Slack — praticamente
-  // sempre verdade pra SMS, mas melhor nao quebrar silenciosamente.
+  // Linha de botoes: "Send" (se houver sugestao) + "Edit & send" (positiva
+  // ou com sugestao) + Star (positiva) ou Archive (nao positiva). Todos
+  // exigem contactId (sem ele nao da pra chamar a API do Paladin). Send e
+  // Edit tambem precisam caber no limite de 2000 caracteres do campo
+  // "value" de um botao do Slack — praticamente sempre verdade pra SMS,
+  // mas melhor nao quebrar silenciosamente.
   if (contactId) {
     const elements = [];
-    if (suggestedReply) {
-      const actionValue = JSON.stringify({ contactId, text: suggestedReply });
-      if (actionValue.length <= 2000) {
+    const actionValue = JSON.stringify({ contactId, text: suggestedReply || '' });
+    if (suggestedReply && actionValue.length > 2000) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: '⚠️ Suggested reply too long for one-click buttons — reply manually in Paladin.' }],
+      });
+    }
+    if (actionValue.length <= 2000) {
+      if (suggestedReply) {
         elements.push({
           type: 'button',
           text: { type: 'plain_text', text: '✅ Send', emoji: true },
@@ -94,10 +126,16 @@ function buildBlocks({ category, reasoning, suggestedReply, leadText, fromPhone,
             deny: { type: 'plain_text', text: 'Cancel' },
           },
         });
-      } else {
-        blocks.push({
-          type: 'context',
-          elements: [{ type: 'mrkdwn', text: '⚠️ Suggested reply too long for a one-click Send button — reply manually in Paladin.' }],
+      }
+      // "Edit & send" abre um modal com a resposta sugerida pre-preenchida.
+      // So em lead positiva (mesmo sem sugestao) ou quando ha sugestao —
+      // negativas nao recebem resposta, so Archive.
+      if ((isPositive || suggestedReply) && isModalConfigured()) {
+        elements.push({
+          type: 'button',
+          text: { type: 'plain_text', text: '✏️ Edit & send', emoji: true },
+          action_id: 'edit_send',
+          value: actionValue,
         });
       }
     }
@@ -190,4 +228,4 @@ async function notifyError(contextLabel, error) {
   }
 }
 
-module.exports = { notifyLead, notifyError, starredLabel, archivedLabel };
+module.exports = { notifyLead, notifyError, postToSlack, starredLabel, archivedLabel };

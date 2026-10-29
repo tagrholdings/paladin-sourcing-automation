@@ -60,6 +60,7 @@ async function lookupContact(contactId) {
     return {
       contactId,
       name: [contact.firstName, contact.lastName].filter(Boolean).join(' ') || null,
+      firstName: contact.firstName || null,
       city,
       state,
       occupation: contact.occupation || null,

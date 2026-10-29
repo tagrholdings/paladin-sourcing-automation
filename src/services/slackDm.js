@@ -12,6 +12,28 @@ function isLeadForwardingConfigured() {
   return Boolean(process.env.SLACK_DM_TOKEN && process.env.LEAD_RECIPIENT_SLACK_ID);
 }
 
+// O botao "Edit & send" (modal) so precisa do token, nao do destinatario.
+function isModalConfigured() {
+  return Boolean(process.env.SLACK_DM_TOKEN);
+}
+
+// Abre um modal. trigger_id vale ~3s depois do clique, entao chamar logo.
+async function openModal(triggerId, view) {
+  const res = await fetch('https://slack.com/api/views.open', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${process.env.SLACK_DM_TOKEN}`,
+    },
+    body: JSON.stringify({ trigger_id: triggerId, view }),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || !json.ok) {
+    throw new Error(`Slack views.open falhou: ${json?.error || res.status}`);
+  }
+  return json;
+}
+
 async function postDm({ text, blocks }) {
   const res = await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
@@ -28,4 +50,4 @@ async function postDm({ text, blocks }) {
   return json;
 }
 
-module.exports = { isLeadForwardingConfigured, postDm };
+module.exports = { isLeadForwardingConfigured, isModalConfigured, openModal, postDm };

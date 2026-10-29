@@ -193,6 +193,8 @@ async function processInboundMessage(data) {
     contactId,
     starred: starredNow,
     archived: contact.archived,
+    messages: contact.messages, // historico completo (so a positiva mostra)
+    leadName: contact.firstName,
   });
 }
 

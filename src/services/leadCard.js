@@ -27,9 +27,8 @@ function tagNames(tags, tagMap) {
 const cleanText = (s) => escapeSlack(s).replace(/\\n/g, '\n').trim();
 
 // Cronologico (a API devolve do mais novo pro mais antigo), so mensagens com texto.
-function chronological(contact) {
-  return [...(contact.messages || [])].reverse().filter((m) => m.text);
-}
+const chronologicalMessages = (messages) => [...(messages || [])].reverse().filter((m) => m.text);
+const chronological = (contact) => chronologicalMessages(contact.messages);
 
 // Nossa mensagem: seta pra direita; da lead: seta pra esquerda + citacao, para
 // bater o olho e ver quem falou o que.
@@ -63,6 +62,38 @@ function chunk(lines) {
   }
   if (cur) chunks.push(cur);
   return chunks;
+}
+
+/**
+ * Blocos do historico completo da conversa, para a notificacao de lead
+ * positiva (no lugar de "Reason"/"Lead message"). Devolve null se nao ha
+ * historico (ex.: o lookup do contato falhou) — quem chama cai no texto
+ * da mensagem recebida.
+ *
+ * A mensagem que acabou de chegar pode ainda nao estar na lista do Paladin
+ * (corrida com o webhook); se faltar, e acrescentada ao fim.
+ *
+ * @param {Object} params
+ * @param {Array} params.messages - mensagens cruas da API (mais novo primeiro)
+ * @param {string} params.leadName - primeiro nome da lead
+ * @param {string} [params.currentText] - texto da mensagem que disparou o webhook
+ * @param {number} params.maxBlocks - quantos blocos cabem na notificacao
+ */
+function historyBlocks({ messages, leadName, currentText, maxBlocks }) {
+  const list = chronologicalMessages(messages);
+  if (list.length === 0) return null;
+  const last = list[list.length - 1];
+  if (currentText && !(last.direction === 'inbound' && String(last.text).trim() === String(currentText).trim())) {
+    list.push({ direction: 'inbound', text: currentText, timestamp: new Date().toISOString() });
+  }
+  const parts = chunk(conversationLines(list, leadName || 'Lead'));
+  // Conversa enorme: mantem o comeco e o fim (o que mais importa).
+  const room = Math.max(2, maxBlocks - 1);
+  const shown = parts.length > room ? [parts[0], ...parts.slice(-(room - 1))] : parts;
+  return [
+    { type: 'context', elements: [{ type: 'mrkdwn', text: `*Full conversation* · ${list.length} messages` }] },
+    ...shown.map((p) => ({ type: 'section', text: { type: 'mrkdwn', text: p } })),
+  ];
 }
 
 /**
@@ -129,4 +160,4 @@ function buildLeadCard({ contact, advisor, sentBy, tagMap }) {
   return { text: `Lead for ${advisor}: ${name}`, blocks };
 }
 
-module.exports = { buildLeadCard };
+module.exports = { buildLeadCard, historyBlocks };
