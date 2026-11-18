@@ -219,6 +219,35 @@ function Insights() {
   );
 }
 
+function ImportBox() {
+  const [since, setSince] = useState('2026-11-16');
+  const [st, setSt] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    api.importStatus().then(setSt).catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!st?.running) return undefined;
+    const t = setInterval(() => api.importStatus().then(setSt).catch(() => {}), 2000);
+    return () => clearInterval(t);
+  }, [st?.running]);
+  const start = async () => {
+    try { setErr(''); const r = await api.startImport(since); setSt(r); } catch (e) { setErr(e.message); }
+  };
+  return (
+    <div className="switch" style={{ flexDirection: 'column' }}>
+      <strong>Import history from Paladin</strong>
+      <span className="muted small">Copies conversations with a lead reply since the chosen date (full history + AI classification). Read-only: it does not archive, star or send anything.</span>
+      <div className="row" style={{ justifyContent: 'flex-start' }}>
+        <input type="date" value={since} onChange={(e) => setSince(e.target.value)} />
+        <button disabled={st?.running} onClick={start}>{st?.running ? 'Importing…' : 'Import'}</button>
+      </div>
+      {st && (st.running || st.finishedAt) && <span className="small">{st.done}/{st.total} conversations{st.finishedAt && !st.running ? ' · done' : ''}{st.error ? ` · error: ${st.error}` : ''}</span>}
+      {err && <div className="error">{err}</div>}
+    </div>
+  );
+}
+
 function Settings() {
   const [s, setS] = useState(null);
   const [err, setErr] = useState('');
@@ -236,6 +265,7 @@ function Settings() {
         <input type="checkbox" checked={s.automation_enabled} onChange={(e) => set('automation_enabled', e.target.checked)} />
         <span><strong>Automation</strong><br /><span className="muted small">When off, inbound messages are only recorded: no classification, star/archive, Slack alert or AI reply.</span></span>
       </label>
+      <ImportBox />
       <label className="switch">
         <input type="checkbox" checked={s.ai_autoreply_enabled} disabled={!s.automation_enabled} onChange={(e) => set('ai_autoreply_enabled', e.target.checked)} />
         <span><strong>Auto-reply (ready-made texts)</strong><br /><span className="muted small">Sends the playbook replies (positive, details, in-person) automatically, at most once per 10 minutes per contact. Custom drafts are never sent automatically.</span></span>

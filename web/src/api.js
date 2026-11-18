@@ -28,6 +28,8 @@ export const api = {
   archive: (id, value) => req('POST', `/conversations/${id}/archive`, { value }),
   commonMessages: (days) => req('GET', `/stats/common-messages?days=${days}`),
   commonReplies: (days) => req('GET', `/stats/common-replies?days=${days}`),
+  startImport: (since) => req('POST', '/import', { since }),
+  importStatus: () => req('GET', '/import/status'),
   settings: () => req('GET', '/settings'),
   saveSettings: (s) => req('PUT', '/settings', s),
 };

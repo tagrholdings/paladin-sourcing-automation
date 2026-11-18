@@ -48,11 +48,11 @@ function recordOutbound({ contactId, text, source }) {
   });
 }
 
-function upsertConversation({ contactId, name, state, city, category, starred, archived, lastText, lastSuggestion, touch }) {
+function upsertConversation({ contactId, name, state, city, category, starred, archived, lastText, lastSuggestion, touch, lastMessageAt }) {
   return safe('upsertConversation', () =>
     db.query(
       `INSERT INTO conversations (contact_id, name, state, city, category, starred, archived, last_text, last_suggestion, last_message_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, CASE WHEN $10 THEN now() ELSE NULL END)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10::timestamptz)
        ON CONFLICT (contact_id) DO UPDATE SET
          name = COALESCE(EXCLUDED.name, conversations.name),
          state = COALESCE(EXCLUDED.state, conversations.state),
@@ -64,7 +64,7 @@ function upsertConversation({ contactId, name, state, city, category, starred, a
          last_suggestion = CASE WHEN EXCLUDED.category IS NOT NULL THEN EXCLUDED.last_suggestion ELSE conversations.last_suggestion END,
          last_message_at = COALESCE(EXCLUDED.last_message_at, conversations.last_message_at),
          updated_at = now()`,
-      [contactId, name ?? null, state ?? null, city ?? null, category ?? null, starred ?? null, archived ?? null, lastText ?? null, lastSuggestion ?? null, Boolean(touch)]
+      [contactId, name ?? null, state ?? null, city ?? null, category ?? null, starred ?? null, archived ?? null, lastText ?? null, lastSuggestion ?? null, touch ? new Date().toISOString() : lastMessageAt ?? null]
     )
   );
 }

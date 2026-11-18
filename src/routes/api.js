@@ -144,6 +144,18 @@ router.get('/stats/common-replies', wrap(async (req, res) => {
   res.json({ replies: r.rows });
 }));
 
+// ---------- Importar historico do Paladin (so leitura + gravacao no banco) ----------
+const importHistory = require('../services/importHistory');
+
+router.post('/import', wrap(async (req, res) => {
+  const date = String(req.body?.since || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'since deve ser YYYY-MM-DD' });
+  const started = importHistory.start(`${date}T00:00:00-05:00`, { classify: req.body?.classify !== false });
+  res.status(started ? 202 : 409).json({ started, ...importHistory.getStatus() });
+}));
+
+router.get('/import/status', wrap(async (_req, res) => res.json(importHistory.getStatus())));
+
 // ---------- Settings ----------
 router.get('/settings', wrap(async (_req, res) => res.json(await store.allSettings())));
 
