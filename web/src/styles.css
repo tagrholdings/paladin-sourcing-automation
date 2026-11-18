@@ -1,0 +1,35 @@
+:root { --bg:#f6f7f9; --card:#fff; --text:#1c2230; --muted:#6b7280; --line:#e3e6ec; --accent:#2f6fed; --good:#16a34a; --warn:#d97706; --bad:#6b7280; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#12151c; --card:#1b2029; --text:#e6e9f0; --muted:#8b93a3; --line:#2a3140; --accent:#6c9bff; }
+}
+* { box-sizing: border-box; }
+body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+button, input, select, textarea { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+button { cursor:pointer; } button:hover:not(:disabled) { border-color:var(--accent); } button:disabled { opacity:.5; cursor:default; }
+button.link { border:none; background:none; color:var(--muted); }
+.center { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; height:100vh; }
+.login { max-width:280px; margin:auto; } .login input, .login button { width:100%; }
+.muted { color:var(--muted); } .small { font-size:12px; } .error { color:#dc2626; padding:6px 0; }
+.clip { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.app { display:flex; flex-direction:column; height:100vh; }
+header { display:flex; align-items:center; gap:16px; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--line); }
+header nav { flex:1; display:flex; gap:6px; } nav button { text-transform:capitalize; } nav button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+main { flex:1; min-height:0; overflow:auto; padding:16px; }
+.inbox { display:grid; grid-template-columns:340px 1fr; gap:16px; height:100%; }
+.inbox aside, .inbox section { background:var(--card); border:1px solid var(--line); border-radius:8px; min-height:0; overflow:auto; }
+.filters { display:flex; flex-wrap:wrap; gap:6px; padding:10px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--card); }
+.filters input[type=text], .filters input:not([type]) { flex:1 1 100%; }
+ul { list-style:none; margin:0; padding:0; } li { padding:10px; border-bottom:1px solid var(--line); cursor:pointer; } li.sel { background:color-mix(in srgb, var(--accent) 12%, transparent); }
+.row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.tag { font-size:11px; padding:1px 7px; border-radius:10px; background:var(--line); } .tag.positive { background:var(--good); color:#fff; } .tag.attention { background:var(--warn); color:#fff; } .tag.silent { background:var(--bad); color:#fff; } .tag.details { background:var(--accent); color:#fff; } .tag.in_person { background:#dc2626; color:#fff; }
+.thread { display:flex; flex-direction:column; height:100%; }
+.thead { display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--line); } .btns { display:flex; gap:6px; }
+.msgs { flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+.msg { max-width:75%; } .msg.outbound { align-self:flex-end; text-align:right; }
+.bubble { display:inline-block; text-align:left; padding:8px 12px; border-radius:12px; background:var(--line); white-space:pre-wrap; } .msg.outbound .bubble { background:var(--accent); color:#fff; }
+.suggestion { margin:0 12px; padding:10px; border:1px dashed var(--accent); border-radius:8px; display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+.compose { display:flex; gap:8px; padding:12px; } .compose textarea { flex:1; resize:vertical; }
+.cols { display:grid; grid-template-columns:1fr 1fr; gap:24px; } .chips { display:flex; gap:6px; flex-wrap:wrap; margin:6px 0; }
+table { width:100%; border-collapse:collapse; background:var(--card); } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+.settings { max-width:560px; } .switch { display:flex; gap:12px; align-items:flex-start; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:8px; margin-bottom:10px; }
+@media (max-width: 800px) { .inbox, .cols { grid-template-columns:1fr; } .inbox { height:auto; } }

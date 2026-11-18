@@ -5,8 +5,11 @@ const sessionState = require('../lib/sessionState');
 const { classifyMessage } = require('../services/classifier');
 const { routeLead } = require('../services/routingMatrix');
 const { lookupContact } = require('../services/contactLookup');
-const { notifyLead, notifyError } = require('../services/slack');
-const { toggleStarred, toggleArchived } = require('../services/paladinApiClient');
+const { notifyError } = require('../services/slack');
+const { toggleStarred, toggleArchived, sendMessage, getTagNameMap } = require('../services/paladinApiClient');
+const { buildLeadCard } = require('../services/leadCard');
+const { postDm, isLeadForwardingConfigured } = require('../services/slackDm');
+const store = require('../services/store');
 
 /**
  * Star/archive automaticos via a API nao oficial do Paladin
@@ -28,8 +31,10 @@ async function safeToggleStarred(contactId) {
 async function safeToggleArchived(contactId) {
   try {
     await toggleArchived(contactId);
+    return true;
   } catch (err) {
     console.error(`[webhook] Falha ao arquivar conversa ${contactId}:`, err.message);
+    return false;
   }
 }
 
@@ -71,8 +76,9 @@ router.post('/', async (req, res) => {
     return res.status(401).json({ error: 'invalid_signature' });
   }
 
-  // Pausa manual: PAUSED=true no Railway. Devolve 503 (em vez de 2xx) para
-  // a Paladin nao considerar a mensagem entregue.
+  // Pausa dura: PAUSED=true no Railway. Devolve 503 (em vez de 2xx) para
+  // a Paladin nao considerar a mensagem entregue. (O liga/desliga do painel
+  // e diferente: aceita a mensagem e so registra, ver processInboundMessage.)
   if (process.env.PAUSED === 'true') {
     console.log('[webhook] Automacao pausada (PAUSED=true) — evento nao processado.');
     return res.status(503).json({ error: 'paused' });
@@ -108,6 +114,51 @@ router.post('/', async (req, res) => {
   });
 });
 
+/** Nome(s) do advisor dono da lead, para o card da Chrysete. */
+function ownerLabel(routing) {
+  const adv = routing?.advisors || [];
+  if (!adv.length) return 'unassigned (confirm location)';
+  // Arizona: o rodizio escolhe o primeiro (Schubert e so backup).
+  if (/^Arizona rotation/.test(routing.note || '')) return adv[0];
+  return adv.join(' / ');
+}
+
+async function resolveRouting(contact) {
+  if (contact.state) {
+    return routeLead({
+      stateCode: contact.state,
+      city: contact.city,
+      zip: contact.address,
+      isLargeOrMultiPractice: Boolean(contact.isLargeOrMultiPractice),
+    });
+  }
+  return {
+    advisors: [],
+    confidence: 'unresolved',
+    note:
+      contact.source === 'lookup_error'
+        ? 'Could not load this contact from Paladin (session/login problem). Confirm the location manually.'
+        : 'Contact has no state on file in Paladin. Confirm the location manually.',
+  };
+}
+
+/** Manda o card da lead pronta (positiva ou presencial) por DM para a Chrysete. */
+async function forwardToChrysete({ contact, urgent }) {
+  if (!isLeadForwardingConfigured()) {
+    console.warn('[webhook] SLACK_DM_TOKEN/LEAD_RECIPIENT_SLACK_ID nao configurados — lead nao enviada para a Chrysete.');
+    return;
+  }
+  try {
+    if (!contact.raw) throw new Error('contact data unavailable (Paladin lookup failed)');
+    const routing = await resolveRouting(contact);
+    const tagMap = await getTagNameMap().catch(() => null);
+    await postDm(buildLeadCard({ contact: contact.raw, advisor: ownerLabel(routing), tagMap, urgent }));
+  } catch (err) {
+    console.error('[webhook] Falha ao enviar lead para a Chrysete:', err.message);
+    notifyError(`Could not forward lead ${contact.contactId} to Chrysete — forward it manually`, err);
+  }
+}
+
 async function processInboundMessage(data) {
   const { messageId, contactId, text, from } = data;
 
@@ -119,83 +170,94 @@ async function processInboundMessage(data) {
   }
 
   if (!text) {
-    // MMS sem texto, so midia. Fora do escopo deste MVP: sinaliza para
-    // revisao manual em vez de tentar classificar algo que nao existe.
-    await notifyLead({
+    // MMS sem texto (so midia): nao da pra classificar. Fica registrado no
+    // painel como "attention" para revisao manual; sem aviso no Slack.
+    await store.recordInbound({
+      contactId,
+      messageId,
+      text: '[no text — possible media]',
       category: 'attention',
-      reasoning: 'Message received with no text (likely an MMS with media only) — review manually in Paladin.',
-      suggestedReply: null,
-      leadText: '[no text — possible media]',
-      fromPhone: from,
+      reasoning: 'Message with no text (likely MMS with media only) — review manually in Paladin.',
     });
     if (messageId) markProcessed(messageId);
     return;
   }
 
+  // Automacao desligada pelo painel: so registra a mensagem (para aparecer
+  // no painel), sem classificar, star/archive, auto-reply nem envio a Chrysete.
+  if (!(await store.getBool('automation_enabled'))) {
+    console.log('[webhook] Automacao desligada no painel — mensagem so registrada.');
+    await store.recordInbound({ contactId, messageId, text });
+    if (messageId) markProcessed(messageId);
+    return;
+  }
+
   // Busca o contato antes de classificar para dar a conversa inteira ao
-  // classificador (a resposta sugerida depende do que ja foi dito).
+  // classificador.
   const contact = await lookupContact(contactId);
 
-  const classification = await classifyMessage({
-    leadText: text,
-    priorContext: buildTranscript(contact.messages, text),
-  });
+  // West Virginia: a Menlo nao pode transacionar la — so arquiva, sem
+  // gastar chamada de IA e sem nunca responder.
+  const classification =
+    contact.state === 'WV'
+      ? { category: 'silent', reasoning: 'West Virginia — Menlo cannot transact in this state; archive only.', suggested_reply: null, reply_kind: null }
+      : await classifyMessage({ leadText: text, priorContext: buildTranscript(contact.messages, text) });
 
   if (messageId) markProcessed(messageId);
 
+  await store.recordInbound({
+    contactId,
+    messageId,
+    text,
+    category: classification.category,
+    reasoning: classification.reasoning,
+    suggestion: classification.suggested_reply,
+    contact,
+  });
+
+  console.log(`[webhook] Lead ${from}: ${classification.category} — ${classification.reasoning}`);
+
   if (classification.category === 'silent') {
-    console.log(`[webhook] Lead ${from} classificada como silenciosa: ${classification.reasoning}`);
-    // Auto-archive: tira conversas mortas (opt-out, recusa clara) da
-    // visao principal. So chama o toggle se ainda nao estiver
-    // arquivada (e um toggle, nao um set — chamar sem checar
-    // desarquivaria uma conversa ja arquivada por outra mensagem).
+    // Auto-archive. So chama o toggle se ainda nao estiver arquivada (e um
+    // toggle, nao um set). Se o lookup falhou (null), nao mexe.
     if (contact.archived === false) {
-      await safeToggleArchived(contactId);
+      if (await safeToggleArchived(contactId)) await store.setFlags(contactId, { archived: true });
     }
     return;
   }
 
-  // Auto-star: so para "positive" (lead com interesse real confirmado),
-  // e so se ainda nao estiver starred (mesmo motivo do archive acima —
-  // e toggle, nao set).
-  let starredNow = contact.starred; // true/false/null (null = lookup falhou)
-  if (classification.category === 'positive' && contact.starred === false) {
-    starredNow = (await safeToggleStarred(contactId)) ? true : false;
+  if (classification.category === 'attention') return; // fica no painel para revisao
+
+  // Auto-star: positivas e quem quer encontro presencial (mesma regra de
+  // toggle: so se ainda nao estiver starred).
+  const wantsStar = classification.category === 'positive' || classification.category === 'in_person';
+  if (wantsStar && contact.starred === false) {
+    if (await safeToggleStarred(contactId)) await store.setFlags(contactId, { starred: true });
   }
 
-  let routing = null;
-  if (contact.state) {
-    routing = routeLead({
-      stateCode: contact.state,
-      city: contact.city,
-      isLargeOrMultiPractice: Boolean(contact.isLargeOrMultiPractice),
-    });
-  } else {
-    routing = {
-      advisors: [],
-      confidence: 'unresolved',
-      note:
-        contact.source === 'lookup_error'
-          ? 'Could not load this contact from Paladin (session/login problem — check the automation alerts). Confirm the location manually in the Paladin CRM before routing.'
-          : contact.source === 'not_found_in_recent_conversations'
-            ? 'Contact not found in Paladin recent conversations. Confirm the location manually in the Paladin CRM before routing.'
-            : 'Contact has no state on file in Paladin. Confirm the location manually in the Paladin CRM before routing.',
-    };
+  // Resposta automatica: so texto PRONTO (canned), com a chave ligada no
+  // painel, no maximo uma vez (nada enviado ao contato nos ultimos 10 min).
+  // Rascunhos "custom" nunca saem sozinhos: ficam no painel para aprovacao.
+  if (
+    classification.reply_kind === 'canned' &&
+    classification.suggested_reply &&
+    contactId &&
+    (await store.getBool('ai_autoreply_enabled')) &&
+    !(await store.sentRecently(contactId, 10))
+  ) {
+    try {
+      await sendMessage(contactId, classification.suggested_reply);
+      await store.recordOutbound({ contactId, text: classification.suggested_reply, source: 'ai' });
+    } catch (err) {
+      console.error(`[webhook] Auto-reply falhou para ${contactId}:`, err.message);
+      notifyError(`Auto-reply failed for contact ${contactId} — reply manually`, err);
+    }
   }
 
-  await notifyLead({
-    category: classification.category,
-    reasoning: classification.reasoning,
-    suggestedReply: classification.suggested_reply,
-    leadText: text,
-    fromPhone: from,
-    routing,
-    contactId,
-    starred: starredNow,
-    archived: contact.archived,
-    messages: contact.messages, // historico completo (so a positiva mostra)
-    leadName: contact.firstName,
-  });
+  // Lead pronta (positiva ou presencial) vai direto para a Chrysete.
+  if (wantsStar) {
+    await forwardToChrysete({ contact, urgent: classification.category === 'in_person' });
+  }
 }
 
 module.exports = router;

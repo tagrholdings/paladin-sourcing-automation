@@ -102,7 +102,9 @@ function historyBlocks({ messages, leadName, currentText, maxBlocks }) {
  * @param {string} params.advisor - nome do advisor dono da lead
  * @param {string} [params.sentBy] - quem clicou no botao no Slack
  */
-function buildLeadCard({ contact, advisor, sentBy, tagMap }) {
+const URGENT_NOTE = 'This person wants to meet in person. Please, mark as urgent';
+
+function buildLeadCard({ contact, advisor, sentBy, tagMap, urgent = false }) {
   const name = [contact.firstName, contact.lastName].filter(Boolean).join(' ') || 'Unknown';
   const location = [contact.city, contact.state].filter(Boolean).join(', ');
   const tags = tagNames(contact.tags, tagMap);
@@ -123,6 +125,7 @@ function buildLeadCard({ contact, advisor, sentBy, tagMap }) {
   const replied = latestLeadReply(messages);
 
   const blocks = [
+    ...(urgent ? [{ type: 'section', text: { type: 'mrkdwn', text: `🚨 *${URGENT_NOTE}*` } }] : []),
     { type: 'header', text: { type: 'plain_text', text: `📤 New lead for ${advisor}`, emoji: true } },
     {
       type: 'section',
@@ -157,7 +160,7 @@ function buildLeadCard({ contact, advisor, sentBy, tagMap }) {
     blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: `Forwarded by ${escapeSlack(sentBy)}` }] });
   }
 
-  return { text: `Lead for ${advisor}: ${name}`, blocks };
+  return { text: `${urgent ? '🚨 URGENT — ' : ''}Lead for ${advisor}: ${name}`, blocks };
 }
 
-module.exports = { buildLeadCard, historyBlocks };
+module.exports = { buildLeadCard, historyBlocks, URGENT_NOTE };

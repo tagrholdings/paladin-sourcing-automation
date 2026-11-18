@@ -64,6 +64,7 @@ async function lookupContact(contactId) {
       city,
       state,
       occupation: contact.occupation || null,
+      address: [contact.streetAddress, contact.address].filter(Boolean).join(', ') || null, // usado so p/ achar o CEP (CA Norte/Sul)
       bio: contact.company || null, // campo "company" da API e na verdade a bio/descricao longa
       isLargeOrMultiPractice: null, // ver comentario acima - continua exigindo confirmacao humana
       // starred/archived vem direto da API — usados em webhook.js para
@@ -75,6 +76,7 @@ async function lookupContact(contactId) {
       // Historico completo da conversa (a API devolve do mais novo pro mais
       // antigo) — usado pelo classificador para sugerir respostas com contexto.
       messages: Array.isArray(contact.messages) ? contact.messages : [],
+      raw: contact, // contato cru, usado para montar o card da Chrysete
       source: 'paladin_unofficial_api',
     };
   } catch (err) {

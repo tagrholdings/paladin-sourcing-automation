@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const webhookRouter = require('./routes/webhook');
 const slackInteractionsRouter = require('./routes/slackInteractions');
+const apiRouter = require('./routes/api');
+const fs = require('fs');
+const path = require('path');
+const db = require('./db');
 
 const REQUIRED_ENV = [
   'PALADIN_WEBHOOK_SECRET',
@@ -52,6 +56,14 @@ app.get('/health', (_req, res) => {
 
 app.use('/webhook', webhookRouter);
 app.use('/slack/interactions', slackInteractionsRouter);
+app.use('/api', apiRouter);
+
+// Painel (React/Vite) compilado em web/dist — servido pelo mesmo servico.
+const webDist = path.join(__dirname, '..', 'web', 'dist');
+if (fs.existsSync(webDist)) {
+  app.use(express.static(webDist));
+  app.get(/^\/(?!api|webhook|slack|health).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+}
 
 app.use((err, _req, res, _next) => {
   console.error('[unhandled-error]', err);
@@ -61,6 +73,15 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`[startup] Servidor rodando na porta ${PORT}`);
+
+  if (db.enabled()) {
+    db.migrate().catch((err) => console.error('[db] Migracao falhou:', err.message));
+  } else {
+    console.warn('[startup] DATABASE_URL nao configurado — painel desativado (a automacao segue normal).');
+  }
+  if (!process.env.DASHBOARD_PASSWORD) {
+    console.warn('[startup] DASHBOARD_PASSWORD nao configurado — login do painel desativado.');
+  }
 
   // Heartbeat do cookie do Paladin: avisa no Slack (e pausa o webhook) assim
   // que expirar, em vez de so descobrir quando chegar um lead.

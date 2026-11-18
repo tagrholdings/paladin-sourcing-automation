@@ -1,12 +1,15 @@
 {
   "name": "paladin-sourcing-automation",
-  "version": "0.1.0",
-  "description": "Triagem automatica de respostas de leads do Paladin Sourcing: webhook -> classificacao por IA -> roteamento pela matriz Menlo -> notificacao no Slack",
+  "version": "0.2.0",
+  "description": "Triagem automatica de respostas de leads do Paladin Sourcing: webhook -> classificacao por IA -> roteamento pela matriz Menlo -> notificacao no Slack + painel web",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "dev:web": "npm --prefix web run dev",
+    "build:web": "npm --prefix web install --include=dev --no-audit --no-fund && npm --prefix web run build",
+    "build": "npm run build:web",
     "export-conversations": "node scripts/export-conversations.js",
     "build-response-bank": "node scripts/build-response-bank.js",
     "refresh-responses": "node scripts/export-conversations.js && node scripts/build-response-bank.js"
@@ -17,7 +20,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "openai": "^4.60.0",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.0"
   },
   "license": "UNLICENSED",
   "private": true

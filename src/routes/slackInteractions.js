@@ -28,6 +28,7 @@ const { sendMessage, findContactById, getTagNameMap, toggleStarred, toggleArchiv
 const { starredLabel, archivedLabel, postToSlack } = require('../services/slack');
 const { buildLeadCard } = require('../services/leadCard');
 const { postDm, openModal } = require('../services/slackDm');
+const store = require('../services/store');
 
 const router = express.Router();
 
@@ -176,6 +177,7 @@ async function processEditSend(payload, text) {
 
   try {
     await sendMessage(meta.contactId, text);
+    await store.recordOutbound({ contactId: meta.contactId, text, source: 'slack' });
   } catch (err) {
     console.error('[slack-interactions] sendMessage (editado) falhou:', err.message);
     await notifyOrFallback(meta.responseUrl, `🛑 *Failed to send* (edited message by ${clickedBy}): ${err.message}\nReply manually in Paladin instead.`);
@@ -214,6 +216,7 @@ async function handleToggleClick(action, payload) {
 
   try {
     const result = isStar ? await toggleStarred(contactId) : await toggleArchived(contactId);
+    await store.setFlags(contactId, isStar ? { starred: Boolean(result.starred) } : { archived: Boolean(result.archived) });
     const label = isStar ? starredLabel(result.starred) : archivedLabel(result.archived);
     const blocks = (payload.message?.blocks || []).map((b) =>
       b.type === 'actions'
@@ -295,6 +298,7 @@ async function handleSendReplyClick(action, payload) {
 
   try {
     await sendMessage(contactId, text);
+    await store.recordOutbound({ contactId, text, source: 'slack' });
     await replaceMessage(
       payload.response_url,
       `✅ *Sent by ${clickedBy}:*\n>${text}`,

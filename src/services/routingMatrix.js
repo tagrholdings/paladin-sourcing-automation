@@ -98,20 +98,39 @@ const ARIZONA_TUCSON_SOUTHERN_NOTE =
  */
 const fs = require('fs');
 const path = require('path');
+const db = require('../db');
 const COUNTER_FILE = path.join(__dirname, '..', '..', 'data', 'az-rotation-counter.json');
 
-function readAzCounter() {
+// Fallback local (sem DATABASE_URL): arquivo JSON, como antes.
+function nextIndexFromFile() {
+  let idx = 0;
   try {
-    const raw = fs.readFileSync(COUNTER_FILE, 'utf8');
-    return JSON.parse(raw).index || 0;
+    idx = JSON.parse(fs.readFileSync(COUNTER_FILE, 'utf8')).index || 0;
   } catch {
-    return 0;
+    idx = 0;
   }
+  fs.mkdirSync(path.dirname(COUNTER_FILE), { recursive: true });
+  fs.writeFileSync(COUNTER_FILE, JSON.stringify({ index: idx + 1 }), 'utf8');
+  return idx;
 }
 
-function writeAzCounter(index) {
-  fs.mkdirSync(path.dirname(COUNTER_FILE), { recursive: true });
-  fs.writeFileSync(COUNTER_FILE, JSON.stringify({ index }), 'utf8');
+/**
+ * Pega o indice atual do rodizio e incrementa, de forma atomica, no
+ * Postgres (tabela settings, chave az_rotation_index). Sobrevive a deploys.
+ */
+async function nextIndex() {
+  if (!db.enabled()) return nextIndexFromFile();
+  try {
+    const r = await db.query(
+      `INSERT INTO settings (key, value) VALUES ('az_rotation_index', '1')
+       ON CONFLICT (key) DO UPDATE SET value = (settings.value::int + 1)::text
+       RETURNING value::int AS next`
+    );
+    return r.rows[0].next - 1; // indice usado nesta chamada
+  } catch (err) {
+    console.error('[routing] Contador do AZ no banco falhou, usando arquivo:', err.message);
+    return nextIndexFromFile();
+  }
 }
 
 /**
@@ -119,12 +138,60 @@ function writeAzCounter(index) {
  * backup (nunca entra pelo rodizio automatico, so se os dois nao
  * tiverem capacidade — isso exige confirmacao humana).
  */
-function nextArizonaRotation() {
+async function nextArizonaRotation() {
   const sequence = ['David Haynes', 'David Haynes', 'Mark Soelberg'];
-  const idx = readAzCounter();
-  const advisor = sequence[idx % sequence.length];
-  writeAzCounter(idx + 1);
-  return advisor;
+  return sequence[(await nextIndex()) % sequence.length];
+}
+
+// --- California: Norte x Sul, dividida "no meio" do estado (definido por
+// Matheus, 18/11/2026). Corte pelo CEP: 900-939 = Sul (inclui Fresno,
+// Bakersfield, Santa Barbara, SLO, Monterey/Salinas); 940-961 = Norte
+// (Bay Area, Sacramento, Central Valley norte, Redding...). Sem CEP, cai
+// numa lista de cidades; sem match, fica unresolved.
+const CA_SOUTH_ADVISORS = ['David Haynes', 'Mark Soelberg', 'Rob Brian', 'Marc Schubert'];
+const CA_NORTH_ADVISORS = ['Mark Soelberg', 'Rob Brian', 'Marc Schubert'];
+const CA_SOUTH_CITIES = new Set((
+  'los angeles,san diego,anaheim,irvine,santa ana,long beach,riverside,san bernardino,upland,banning,ontario,pasadena,glendale,burbank,' +
+  'torrance,redondo beach,west hollywood,beverly hills,santa monica,culver city,inglewood,pomona,fontana,corona,temecula,murrieta,' +
+  'oceanside,carlsbad,escondido,chula vista,el cajon,la jolla,newport beach,huntington beach,costa mesa,fullerton,orange,tustin,' +
+  'mission viejo,lake forest,laguna niguel,santa barbara,ventura,oxnard,thousand oaks,simi valley,santa clarita,palmdale,lancaster,' +
+  'bakersfield,fresno,clovis,visalia,san luis obispo,paso robles,palm springs,palm desert,indio,victorville,hesperia,rancho cucamonga,' +
+  'south san gabriel,san gabriel,rosemead,el monte,monterey park,diamond bar,walnut,chino,chino hills,mission hills,northridge,woodland hills,calabasas,' +
+  'monterey,salinas,carmel,el centro,yucaipa,redlands,whittier,downey,west covina,covina,alhambra,arcadia,encino,sherman oaks,van nuys'
+).split(','));
+const CA_NORTH_CITIES = new Set((
+  'san francisco,oakland,san jose,sacramento,berkeley,fremont,hayward,santa rosa,napa,vallejo,concord,walnut creek,palo alto,mountain view,' +
+  'sunnyvale,santa clara,redwood city,san mateo,san rafael,petaluma,stockton,modesto,merced,turlock,tracy,manteca,lodi,elk grove,roseville,' +
+  'folsom,davis,woodland,yuba city,chico,redding,eureka,santa cruz,gilroy,morgan hill,pleasanton,livermore,antioch,fairfield,vacaville,' +
+  'menlo park,south san francisco,daly city,san bruno,burlingame,foster city,los altos,cupertino,campbell,los gatos,milpitas,dublin,san ramon,danville,' +
+  'auburn,rocklin,truckee,placerville,red bluff,ukiah,medford'
+).split(','));
+
+function routeCalifornia(city, zip) {
+  const z = zip && String(zip).match(/\b9[0-6]\d{3}\b/);
+  let side = null;
+  let basis = null;
+  if (z) {
+    const prefix = Number(z[0].slice(0, 3));
+    side = prefix <= 939 ? 'south' : 'north';
+    basis = `ZIP ${z[0]}`;
+  } else if (city) {
+    const c = String(city).toLowerCase().trim();
+    if (CA_SOUTH_CITIES.has(c)) { side = 'south'; basis = `city "${city}"`; }
+    else if (CA_NORTH_CITIES.has(c)) { side = 'north'; basis = `city "${city}"`; }
+  }
+  if (!side) {
+    return {
+      advisors: CA_SOUTH_ADVISORS,
+      confidence: 'unresolved',
+      note: `California — could not tell Northern from Southern${city ? ` for "${city}"` : ''}. South = Haynes, Soelberg, Rob Brian, Schubert; North = Soelberg, Rob Brian, Schubert. Confirm manually.`,
+    };
+  }
+  return {
+    advisors: side === 'south' ? CA_SOUTH_ADVISORS : CA_NORTH_ADVISORS,
+    confidence: 'inferred',
+    note: `${side === 'south' ? 'Southern' : 'Northern'} California (by ${basis}; state split in the middle, defined by Matheus 2026-11-18).`,
+  };
 }
 
 /**
@@ -134,7 +201,7 @@ function nextArizonaRotation() {
  * @param {boolean} [params.isLargeOrMultiPractice] - sinalizado por humano ou heuristica externa
  * @returns {{advisors: string[], confidence: 'explicit'|'inferred'|'unresolved', note: string}}
  */
-function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
+async function routeLead({ stateCode, city, zip, isLargeOrMultiPractice = false }) {
   if (!stateCode) {
     return {
       advisors: [],
@@ -192,7 +259,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
         note: `Arizona with no city provided — cannot confirm whether it is Tucson/Southern AZ. ${ARIZONA_TUCSON_SOUTHERN_NOTE}`,
       };
     }
-    const nextAdvisor = nextArizonaRotation();
+    const nextAdvisor = await nextArizonaRotation();
     return {
       advisors: [nextAdvisor, 'Marc Schubert'],
       confidence: 'explicit',
@@ -201,25 +268,7 @@ function routeLead({ stateCode, city, isLargeOrMultiPractice = false }) {
   }
 
   // --- California (Norte/Sul) ---
-  if (state === 'CA') {
-    if (!city) {
-      return {
-        advisors: ['David Haynes', 'Mark Soelberg', 'Rob Brian', 'Marc Schubert'],
-        confidence: 'unresolved',
-        note: 'California with no city provided — cannot tell Northern from Southern. Confirm manually.',
-      };
-    }
-    // Heuristica simples e deliberadamente conservadora: nao tenta
-    // adivinhar a partir so do nome da cidade sem uma lista confiavel
-    // de qual cidade pertence a qual metade do estado. Devolve
-    // unresolved e pede confirmacao humana, exatamente como fizemos
-    // manualmente para os leads de Fresno/San Diego hoje.
-    return {
-      advisors: ['David Haynes', 'Mark Soelberg', 'Rob Brian', 'Marc Schubert'],
-      confidence: 'unresolved',
-      note: `California — city "${city}" provided, but this module has no reliable list of Northern vs. Southern California cities. Confirm manually: South = Haynes, Soelberg, Rob Brian, Schubert; North = Soelberg, Rob Brian, Schubert.`,
-    };
-  }
+  if (state === 'CA') return routeCalifornia(city, zip);
 
   // --- Pacific Northwest (inferido: WA, OR) ---
   if (INFERRED_PACIFIC_NORTHWEST.includes(state)) {

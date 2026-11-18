@@ -5,3 +5,5 @@ data/az-rotation-counter.json
 npm-debug.log*
 .DS_Store
 data/conversations.json
+web/node_modules/
+web/dist/
