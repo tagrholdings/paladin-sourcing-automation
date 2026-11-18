@@ -109,16 +109,33 @@ function buildLeadCard({ contact, advisor, sentBy, tagMap, urgent = false }) {
   const location = [contact.city, contact.state].filter(Boolean).join(', ');
   const tags = tagNames(contact.tags, tagMap);
 
+  // O Paladin guarda alguns campos deslocados (import de planilha): "email" as
+  // vezes traz a biografia e "streetAddress" traz a cidade/estado da pratica.
+  const real = (v) => (v && !/^(n\/a|undefined|null|-)$/i.test(String(v).trim()) ? String(v).trim() : null);
+  const emailRaw = real(contact.email);
+  const email = emailRaw && /@/.test(emailRaw) && emailRaw.length < 80 ? emailRaw : null;
+  const bio = real(contact.company) || (emailRaw && !email ? emailRaw : null);
+  const practiceAddress = [real(contact.address), real(contact.streetAddress)].filter(Boolean).join(', ');
+
   const fields = [
     ['Phone', contact.phone],
-    ['Email', contact.email],
-    ['Company', contact.company],
-    ['Location', location || contact.address],
+    ['Email', email],
+    ['Bio', bio && bio.length > 300 ? `${bio.slice(0, 297)}...` : bio],
+    ['Location (CRM)', location],
+    ['Practice address', practiceAddress],
     ['Tags', tags.join(', ')],
     ['Sent from', contact.userNumberPhone],
   ]
     .filter(([, v]) => v)
     .map(([k, v]) => ({ type: 'mrkdwn', text: `*${k}:*\n${escapeSlack(v)}` }));
+
+  // Aviso quando o estado do endereco da pratica difere do estado do CRM
+  // (o roteamento usa o estado do CRM).
+  const addrState = (real(contact.streetAddress) || '').match(/\b([A-Za-z]{2})$/);
+  const locationWarning =
+    addrState && contact.state && addrState[1].toUpperCase() !== String(contact.state).trim().toUpperCase()
+      ? `⚠️ *Check location:* CRM says ${escapeSlack(location)}, but the practice address says ${escapeSlack(real(contact.streetAddress))}. Confirm before routing.`
+      : null;
 
   const messages = chronological(contact);
   const leadName = contact.firstName || 'Lead';
@@ -133,6 +150,7 @@ function buildLeadCard({ contact, advisor, sentBy, tagMap, urgent = false }) {
     },
   ];
   if (fields.length) blocks.push({ type: 'section', fields: fields.slice(0, 10) });
+  if (locationWarning) blocks.push({ type: 'section', text: { type: 'mrkdwn', text: locationWarning } });
 
   if (replied.length) {
     blocks.push({
