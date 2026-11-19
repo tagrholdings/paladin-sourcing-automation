@@ -362,7 +362,7 @@ function Settings() {
         <Switch title="Automation" checked={s.automation_enabled} onChange={(v) => set('automation_enabled', v)}
           desc="Classifies replies, archives dead ends, stars interested leads and sends them to Chrysete. When off, new messages are only recorded." />
         <Switch title="Auto-reply" checked={s.ai_autoreply_enabled} disabled={!s.automation_enabled} onChange={(v) => set('ai_autoreply_enabled', v)}
-          desc="Sends the approved reply texts automatically (once per contact every 10 min). Custom drafts are never sent automatically." />
+          desc="Replies automatically: approved texts for known situations, and a short common-sense reply from the AI when nothing fits (once per contact every 10 min)." />
       </div>
       <ImportBox />
     </div>

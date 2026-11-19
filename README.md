@@ -194,5 +194,5 @@ data/
 - Precisa de Postgres (`DATABASE_URL`), `DASHBOARD_PASSWORD` e `SESSION_SECRET`. Sem `DATABASE_URL` a automacao roda como antes, sem painel.
 - A automacao **nasce desligada** no painel. Desligada, o webhook so registra as mensagens.
 - Ligada: classifica (positive / in_person / details / silent / attention), arquiva negativas e starreia positivas, e manda as leads prontas (positivas e presenciais) por DM para a Chrysete. Nao ha mais aviso por mensagem no canal do Slack (so erros).
-- Chave separada "Auto-reply": envia os textos prontos de `src/services/replyTemplates.js` (regras em `docs/reply-playbook.md`). Rascunhos "custom" nunca saem sozinhos.
+- Chave separada "Auto-reply": envia os textos prontos de `src/services/replyTemplates.js` (regras em `docs/reply-playbook.md`). Quando nenhum texto pronto serve, a IA responde com bom senso (sem revisao humana, max. 480 caracteres).
 - Rodizio do Arizona fica no Postgres. Dev: `npm run dev` + `npm run dev:web`; build: `npm run build`.

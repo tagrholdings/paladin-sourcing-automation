@@ -227,8 +227,6 @@ async function processInboundMessage(data) {
     return;
   }
 
-  if (classification.category === 'attention') return; // fica no painel para revisao
-
   // Auto-star: positivas e quem quer encontro presencial (mesma regra de
   // toggle: so se ainda nao estiver starred).
   // (inclui "details" com interesse explicito, ex.: "Sure, what do you see in the market?")
@@ -237,11 +235,11 @@ async function processInboundMessage(data) {
     if (await safeToggleStarred(contactId)) await store.setFlags(contactId, { starred: true });
   }
 
-  // Resposta automatica: so texto PRONTO (canned), com a chave ligada no
-  // painel, no maximo uma vez (nada enviado ao contato nos ultimos 10 min).
-  // Rascunhos "custom" nunca saem sozinhos: ficam no painel para aprovacao.
+  // Resposta automatica (texto pronto OU resposta da IA com bom senso, sem
+  // revisao humana), com a chave ligada no painel, no maximo uma vez (nada
+  // enviado ao contato nos ultimos 10 min).
   if (
-    classification.reply_kind === 'canned' &&
+    classification.reply_kind &&
     classification.suggested_reply &&
     contactId &&
     (await store.getBool('ai_autoreply_enabled')) &&

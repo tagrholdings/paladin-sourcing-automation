@@ -24,7 +24,9 @@ Sugestão de uso: 1 = desconfiança/validade; 2 = "qual empresa / quem é"; 3 = 
 
 **Se nenhuma das 3 servir:** tentar responder a pergunta de forma breve, **apenas se soubermos a resposta**
 (sem inventar números, nomes de compradores ou promessas), e terminar marcando uma ligação para explicar melhor
-(ex.: "We'll reach out after patient hours?"). Esses rascunhos precisam de aprovação humana.
+(ex.: "We'll reach out after patient hours?"). **A IA envia essa resposta sozinha, sem revisão humana** (decisão do
+Matheus em 18/11/2026: confia no bom senso da IA). Vale também para mensagens "attention" que não encaixam nas regras,
+exceto recusas/opt-out/número errado, que só arquivam. Limite: 480 caracteres.
 
 ## 3. Quer se encontrar pessoalmente
 Enviar:
