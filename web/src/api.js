@@ -24,6 +24,7 @@ export const api = {
   conversations: (params) => req('GET', `/conversations?${new URLSearchParams(params)}`),
   conversation: (id) => req('GET', `/conversations/${id}`),
   send: (id, text) => req('POST', `/conversations/${id}/send`, { text }),
+  sentAsLead: (id, value) => req('POST', `/conversations/${id}/sent-as-lead`, { value }),
   star: (id, value) => req('POST', `/conversations/${id}/star`, { value }),
   archive: (id, value) => req('POST', `/conversations/${id}/archive`, { value }),
   commonMessages: (days) => req('GET', `/stats/common-messages?days=${days}`),

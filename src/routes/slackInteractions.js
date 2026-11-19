@@ -261,6 +261,7 @@ async function handleSendAsLeadClick(action, payload) {
     const tagMap = await getTagNameMap().catch(() => null);
     const card = buildLeadCard({ contact, advisor, sentBy: clickedBy, tagMap });
     await postDm(card);
+    await store.markSentAsLead(contactId, advisor);
     await respond(payload.response_url, `📤 *${clickedBy}* sent this lead to Chrysete as *${advisor}'s* lead.`);
   } catch (err) {
     console.error('[slack-interactions] send as lead falhou:', err.message);

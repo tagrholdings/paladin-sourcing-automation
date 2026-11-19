@@ -1,0 +1,11 @@
+{
+  "note": "Leads ja enviadas para a Chrysete antes da tag 'sent as lead' existir (18/11/2026). Aplicado pelo Import do painel.",
+  "sentAt": "2026-11-18T18:00:00Z",
+  "leads": [
+    { "id": "6ae0d1717b4ee8f4bc5e4804", "to": "Craig Gibowicz" },
+    { "id": "6ae0d16c7b4ee8f4bc5e40ce", "to": "Craig Gibowicz" },
+    { "id": "6ae0d1717b4ee8f4bc5e4763", "to": "Rob Brian" },
+    { "id": "6ae0d1717b4ee8f4bc5e48ec", "to": "Southern CA advisors (urgent, in person)" },
+    { "id": "6ae0d1767b4ee8f4bc5e4de2", "to": "Craig Gibowicz" }
+  ]
+}

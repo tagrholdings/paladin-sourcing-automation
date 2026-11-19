@@ -80,6 +80,24 @@ async function run(since, { classify }) {
     });
     status.done += 1;
   }
+  await applySentAsLeadBackfill();
+}
+
+// Leads que ja tinham ido para a Chrysete antes da tag existir (data/sent-as-lead-backfill.json).
+async function applySentAsLeadBackfill() {
+  let file;
+  try {
+    file = require('../../data/sent-as-lead-backfill.json');
+  } catch {
+    return;
+  }
+  for (const l of file.leads || []) {
+    await db.query(
+      `UPDATE conversations SET sent_as_lead_at = COALESCE(sent_as_lead_at, $2::timestamptz),
+         sent_as_lead_to = COALESCE(sent_as_lead_to, $3) WHERE contact_id=$1`,
+      [l.id, file.sentAt, l.to]
+    );
+  }
 }
 
 function start(sinceIso, { classify = true } = {}) {

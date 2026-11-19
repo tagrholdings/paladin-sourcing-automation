@@ -31,3 +31,7 @@ CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- Lead ja enviada para a Chrysete (tag "sent as lead" no painel)
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS sent_as_lead_at TIMESTAMPTZ;
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS sent_as_lead_to TEXT;

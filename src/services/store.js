@@ -69,6 +69,19 @@ function upsertConversation({ contactId, name, state, city, category, starred, a
   );
 }
 
+/** Marca (ou desmarca, com value=false) a conversa como "sent as lead" (enviada para a Chrysete). */
+function markSentAsLead(contactId, to, value = true) {
+  return safe('markSentAsLead', async () => {
+    await upsertConversation({ contactId });
+    await db.query(
+      value
+        ? `UPDATE conversations SET sent_as_lead_at = COALESCE(sent_as_lead_at, now()), sent_as_lead_to = COALESCE($2, sent_as_lead_to) WHERE contact_id=$1`
+        : `UPDATE conversations SET sent_as_lead_at = NULL, sent_as_lead_to = NULL WHERE contact_id=$1`,
+      [contactId, to || null]
+    );
+  });
+}
+
 function setFlags(contactId, { starred, archived }) {
   return upsertConversation({ contactId, starred, archived });
 }
@@ -136,6 +149,7 @@ module.exports = {
   recordOutbound,
   upsertConversation,
   setFlags,
+  markSentAsLead,
   sentRecently,
   getBool,
   setSetting,

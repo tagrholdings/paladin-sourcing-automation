@@ -47,6 +47,8 @@ router.get('/conversations', wrap(async (req, res) => {
   const bind = (v) => { params.push(v); return `$${params.length}`; };
   if (category) where.push(`category = ${bind(category)}`);
   if (starred === 'true') where.push('starred = true');
+  if (req.query.sentAsLead === 'true') where.push('sent_as_lead_at IS NOT NULL');
+  if (req.query.sentAsLead === 'false') where.push('sent_as_lead_at IS NULL');
   // por padrao esconde arquivadas; archived=true mostra so arquivadas; archived=all mostra tudo
   if (archived === 'true') where.push('archived = true');
   else if (archived !== 'all') where.push('COALESCE(archived,false) = false');
@@ -104,6 +106,13 @@ async function setFlag(req, res, flag) {
   await store.setFlags(contactId, { [col]: result });
   res.json({ [col]: result });
 }
+// Marcar/desmarcar manualmente como "sent as lead" (so a tag no painel; nao envia nada)
+router.post('/conversations/:id/sent-as-lead', wrap(async (req, res) => {
+  await store.markSentAsLead(req.params.id, req.body?.to || 'manual', Boolean(req.body?.value));
+  const r = await db.query('SELECT sent_as_lead_at, sent_as_lead_to FROM conversations WHERE contact_id=$1', [req.params.id]);
+  res.json(r.rows[0] || {});
+}));
+
 router.post('/conversations/:id/star', wrap((req, res) => setFlag(req, res, 'starred')));
 router.post('/conversations/:id/archive', wrap((req, res) => setFlag(req, res, 'archived')));
 

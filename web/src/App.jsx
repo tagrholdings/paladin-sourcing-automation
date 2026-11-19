@@ -1,14 +1,32 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from './api.js';
 
-const CATS = ['positive', 'in_person', 'details', 'attention', 'silent'];
-const fmt = (d) => (d ? new Date(d).toLocaleString() : '');
+const CATS = [
+  ['', 'All'],
+  ['positive', 'Positive'],
+  ['in_person', 'In person'],
+  ['details', 'Details'],
+  ['attention', 'Attention'],
+  ['silent', 'Archive'],
+];
+const label = (c) => (c === 'in_person' ? 'in person' : c === 'silent' ? 'archive' : c);
+
+const fmt = (d) => {
+  if (!d) return '';
+  const dt = new Date(d);
+  const today = new Date();
+  const opts = dt.toDateString() === today.toDateString() ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+  return dt.toLocaleString([], opts);
+};
+
+function Tag({ kind, children }) {
+  return <span className={`tag ${kind}`}>{children || label(kind)}</span>;
+}
 
 export default function App() {
-  const [auth, setAuth] = useState(null); // null = carregando
+  const [auth, setAuth] = useState(null);
   const [tab, setTab] = useState('inbox');
-
-  const refreshAuth = useCallback(() => api.me().then((m) => setAuth(m)).catch(() => setAuth({ authed: false })), []);
+  const refreshAuth = useCallback(() => api.me().then(setAuth).catch(() => setAuth({ authed: false })), []);
   useEffect(() => { refreshAuth(); }, [refreshAuth]);
 
   if (!auth) return <div className="center muted">Loading…</div>;
@@ -18,15 +36,15 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <strong>Paladin Panel</strong>
+        <span className="brand">Paladin</span>
         <nav>
           {['inbox', 'insights', 'settings'].map((t) => (
-            <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>
+            <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>
-        <button className="link" onClick={() => api.logout().then(refreshAuth)}>Log out</button>
+        <button className="ghost" onClick={() => api.logout().then(refreshAuth)}>Log out</button>
       </header>
-      <main>
+      <main className={tab === 'inbox' ? 'flush' : ''}>
         {tab === 'inbox' && <Inbox onUnauthorized={refreshAuth} />}
         {tab === 'insights' && <Insights />}
         {tab === 'settings' && <Settings />}
@@ -44,74 +62,77 @@ function Login({ onDone }) {
   };
   return (
     <form className="center login" onSubmit={submit}>
-      <h2>Paladin Panel</h2>
+      <h1>Paladin</h1>
       <input type="password" autoFocus placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
-      <button type="submit">Log in</button>
+      <button className="primary" type="submit">Log in</button>
       {err && <div className="error">{err}</div>}
     </form>
   );
 }
 
 function Inbox({ onUnauthorized }) {
-  const [filters, setFilters] = useState({ category: '', starred: false, archived: 'false', q: '' });
+  const [f, setF] = useState({ category: '', starred: false, archived: false, sentAsLead: false, q: '' });
   const [list, setList] = useState([]);
   const [sel, setSel] = useState(null);
   const [err, setErr] = useState('');
 
   const load = useCallback(async () => {
-    const p = {};
-    if (filters.category) p.category = filters.category;
-    if (filters.starred) p.starred = 'true';
-    p.archived = filters.archived;
-    if (filters.q) p.q = filters.q;
-    try {
-      setList((await api.conversations(p)).conversations);
-      setErr('');
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401) onUnauthorized();
-      else setErr(e.message);
-    }
-  }, [filters, onUnauthorized]);
+    const p = { archived: f.archived ? 'true' : 'false' };
+    if (f.category) p.category = f.category;
+    if (f.starred) p.starred = 'true';
+    if (f.sentAsLead) p.sentAsLead = 'true';
+    if (f.q) p.q = f.q;
+    try { setList((await api.conversations(p)).conversations); setErr(''); }
+    catch (e) { if (e instanceof ApiError && e.status === 401) onUnauthorized(); else setErr(e.message); }
+  }, [f, onUnauthorized]);
 
   useEffect(() => { load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [load]);
 
+  const toggle = (k) => setF((s) => ({ ...s, [k]: !s[k] }));
+
   return (
-    <div className="inbox">
+    <div className={`inbox ${sel ? 'has-sel' : ''}`}>
       <aside>
         <div className="filters">
-          <input placeholder="Search name, text or id" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} />
-          <select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
-            <option value="">All categories</option>
-            {CATS.map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <select value={filters.archived} onChange={(e) => setFilters({ ...filters, archived: e.target.value })}>
-            <option value="false">Active</option>
-            <option value="true">Archived</option>
-            <option value="all">All</option>
-          </select>
-          <label><input type="checkbox" checked={filters.starred} onChange={(e) => setFilters({ ...filters, starred: e.target.checked })} /> ★ only</label>
+          <input type="search" placeholder="Search name, text or id" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
+          <div className="chips">
+            {CATS.map(([v, l]) => (
+              <button key={v} className={`chip ${f.category === v ? 'on' : ''}`} onClick={() => setF({ ...f, category: v })}>{l}</button>
+            ))}
+          </div>
+          <div className="chips">
+            <button className={`chip ${f.starred ? 'on' : ''}`} onClick={() => toggle('starred')}>★ Starred</button>
+            <button className={`chip ${f.sentAsLead ? 'on' : ''}`} onClick={() => toggle('sentAsLead')}>Sent as lead</button>
+            <button className={`chip ${f.archived ? 'on' : ''}`} onClick={() => toggle('archived')}>Archived</button>
+          </div>
         </div>
-        {err && <div className="error">{err}</div>}
-        <ul>
+        {err && <div className="error pad">{err}</div>}
+        <ul className="list">
           {list.map((c) => (
             <li key={c.contact_id} className={sel === c.contact_id ? 'sel' : ''} onClick={() => setSel(c.contact_id)}>
               <div className="row">
-                <span>{c.starred ? '★ ' : ''}{c.name || c.contact_id.slice(0, 8)}</span>
-                {c.category && <span className={`tag ${c.category}`}>{c.category}</span>}
+                <span className="name">{c.starred ? '★ ' : ''}{c.name || c.contact_id.slice(0, 8)}</span>
+                <span className="muted small">{fmt(c.last_message_at)}</span>
               </div>
               <div className="muted clip">{c.last_text}</div>
-              <div className="muted small">{[c.city, c.state].filter(Boolean).join(', ')} · {fmt(c.last_message_at)}</div>
+              <div className="tags">
+                {c.category && <Tag kind={c.category} />}
+                {c.sent_as_lead_at && <Tag kind="lead">sent as lead</Tag>}
+                <span className="muted small">{[c.city, c.state].filter(Boolean).join(', ')}</span>
+              </div>
             </li>
           ))}
-          {!list.length && <li className="muted">No conversations.</li>}
+          {!list.length && <li className="empty muted">No conversations.</li>}
         </ul>
       </aside>
-      <section>{sel ? <Thread id={sel} onChanged={load} /> : <div className="center muted">Select a conversation</div>}</section>
+      <section>
+        {sel ? <Thread id={sel} onChanged={load} onBack={() => setSel(null)} /> : <div className="center muted desk-only">Select a conversation</div>}
+      </section>
     </div>
   );
 }
 
-function Thread({ id, onChanged }) {
+function Thread({ id, onChanged, onBack }) {
   const [data, setData] = useState(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -127,43 +148,56 @@ function Thread({ id, onChanged }) {
     setBusy(true); setErr('');
     try { await fn(); await load(); onChanged(); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
-  const send = () => text.trim() && act(async () => { await api.send(id, text.trim()); setText(''); });
+  const send = () => {
+    if (!text.trim() || !window.confirm('Send this SMS to the lead?')) return;
+    act(async () => { await api.send(id, text.trim()); setText(''); });
+  };
 
   return (
     <div className="thread">
       <div className="thead">
-        <div>
-          <strong>{c.name || c.contact_id}</strong>
-          <div className="muted small">{[c.city, c.state].filter(Boolean).join(', ')} {c.category && <span className={`tag ${c.category}`}>{c.category}</span>}</div>
+        <button className="ghost back" onClick={onBack} aria-label="Back">←</button>
+        <div className="who">
+          <div className="name">{c.name || c.contact_id}</div>
+          <div className="tags">
+            {c.category && <Tag kind={c.category} />}
+            {c.sent_as_lead_at && <Tag kind="lead">sent as lead</Tag>}
+            <span className="muted small">{[c.city, c.state].filter(Boolean).join(', ')}</span>
+          </div>
         </div>
-        <div className="btns">
-          <button disabled={busy} onClick={() => act(() => api.star(id, !c.starred))}>{c.starred ? '★ Starred' : '☆ Star'}</button>
+        <div className="acts">
+          <button disabled={busy} onClick={() => act(() => api.star(id, !c.starred))}>{c.starred ? '★' : '☆'}<span className="desk-only"> {c.starred ? 'Starred' : 'Star'}</span></button>
           <button disabled={busy} onClick={() => act(() => api.archive(id, !c.archived))}>{c.archived ? 'Unarchive' : 'Archive'}</button>
+          <button disabled={busy} title="Only changes the tag in this panel" onClick={() => act(() => api.sentAsLead(id, !c.sent_as_lead_at))}>
+            {c.sent_as_lead_at ? 'Unmark lead' : 'Mark as lead'}
+          </button>
         </div>
       </div>
+
       <div className="msgs">
         {messages.map((m) => (
           <div key={m.id} className={`msg ${m.direction}`}>
             <div className="bubble">{m.text}</div>
-            <div className="muted small">
-              {m.direction === 'outbound' ? `Us (${m.source})` : 'Lead'} · {fmt(m.ts)}
-              {m.category && <> · <span className={`tag ${m.category}`}>{m.category}</span></>}
+            <div className="meta muted small">
+              {m.direction === 'outbound' ? `Us · ${m.source}` : 'Lead'} · {fmt(m.ts)}
+              {m.category && <> · <Tag kind={m.category} /></>}
             </div>
-            {m.reasoning && <div className="muted small">Why: {m.reasoning}</div>}
+            {m.reasoning && <div className="why muted small">{m.reasoning}</div>}
           </div>
         ))}
       </div>
+
       {c.last_suggestion && (
         <div className="suggestion">
-          <div className="small muted">AI suggestion</div>
+          <div className="muted small">Suggested reply</div>
           <div>{c.last_suggestion}</div>
           <button onClick={() => setText(c.last_suggestion)}>Use suggestion</button>
         </div>
       )}
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error pad">{err}</div>}
       <div className="compose">
-        <textarea rows={3} placeholder="Write a reply…" value={text} onChange={(e) => setText(e.target.value)} />
-        <button disabled={busy || !text.trim()} onClick={() => confirm('Send this SMS to the lead?') && send()}>Send</button>
+        <textarea rows={2} placeholder="Write a reply…" value={text} onChange={(e) => setText(e.target.value)} />
+        <button className="primary" disabled={busy || !text.trim()} onClick={send}>Send</button>
       </div>
     </div>
   );
@@ -181,9 +215,9 @@ function Insights() {
   }, [days]);
 
   return (
-    <div className="insights">
+    <div className="page">
       <div className="row">
-        <h3>Insights</h3>
+        <h2>Insights</h2>
         <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
@@ -192,30 +226,41 @@ function Insights() {
         </select>
       </div>
       {err && <div className="error">{err}</div>}
-      <div className="cols">
-        <div>
-          <h4>Most common lead messages</h4>
-          {msgs?.categories?.length > 0 && (
-            <div className="chips">{msgs.categories.map((c) => <span key={c.category} className={`tag ${c.category}`}>{c.category}: {c.n}</span>)}</div>
-          )}
-          <table>
-            <thead><tr><th>#</th><th>Message</th><th>Category</th></tr></thead>
-            <tbody>{msgs?.messages.map((m) => (
-              <tr key={m.key}><td>{m.n}</td><td>{m.example}</td><td>{m.category && <span className={`tag ${m.category}`}>{m.category}</span>}</td></tr>
-            ))}</tbody>
-          </table>
-        </div>
-        <div>
-          <h4>Most common replies we sent</h4>
-          <table>
-            <thead><tr><th>#</th><th>Reply</th><th>Lead answered</th><th>AI</th></tr></thead>
-            <tbody>{replies?.replies.map((r) => (
-              <tr key={r.key}><td>{r.n}</td><td>{r.example}</td><td>{Math.round((100 * r.answered) / r.n)}%</td><td>{r.by_ai}</td></tr>
-            ))}</tbody>
-          </table>
-        </div>
+
+      <div className="card">
+        <h3>Most common lead messages</h3>
+        {msgs?.categories?.length > 0 && <div className="tags pad-b">{msgs.categories.map((c) => <Tag key={c.category} kind={c.category}>{label(c.category)} · {c.n}</Tag>)}</div>}
+        <ul className="rank">
+          {msgs?.messages.map((m) => (
+            <li key={m.key}><b>{m.n}</b><span>{m.example}</span>{m.category && <Tag kind={m.category} />}</li>
+          ))}
+          {msgs && !msgs.messages.length && <li className="muted">No data yet.</li>}
+        </ul>
+      </div>
+
+      <div className="card">
+        <h3>Most common replies we sent</h3>
+        <ul className="rank">
+          {replies?.replies.map((r) => (
+            <li key={r.key}>
+              <b>{r.n}</b>
+              <span>{r.example}<span className="muted small block">{Math.round((100 * r.answered) / r.n)}% answered again{r.by_ai ? ` · ${r.by_ai} by automation` : ''}</span></span>
+            </li>
+          ))}
+          {replies && !replies.replies.length && <li className="muted">No data yet.</li>}
+        </ul>
       </div>
     </div>
+  );
+}
+
+function Switch({ checked, onChange, disabled, title, desc }) {
+  return (
+    <label className={`switch ${disabled ? 'disabled' : ''}`}>
+      <span><b>{title}</b><span className="muted small block">{desc}</span></span>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <i aria-hidden="true" />
+    </label>
   );
 }
 
@@ -223,26 +268,24 @@ function ImportBox() {
   const [since, setSince] = useState('2026-11-16');
   const [st, setSt] = useState(null);
   const [err, setErr] = useState('');
-  useEffect(() => {
-    api.importStatus().then(setSt).catch(() => {});
-  }, []);
+  useEffect(() => { api.importStatus().then(setSt).catch(() => {}); }, []);
   useEffect(() => {
     if (!st?.running) return undefined;
     const t = setInterval(() => api.importStatus().then(setSt).catch(() => {}), 2000);
     return () => clearInterval(t);
   }, [st?.running]);
   const start = async () => {
-    try { setErr(''); const r = await api.startImport(since); setSt(r); } catch (e) { setErr(e.message); }
+    try { setErr(''); setSt(await api.startImport(since)); } catch (e) { setErr(e.message); }
   };
   return (
-    <div className="switch" style={{ flexDirection: 'column' }}>
-      <strong>Import history from Paladin</strong>
-      <span className="muted small">Copies conversations with a lead reply since the chosen date (full history + AI classification). Read-only: it does not archive, star or send anything.</span>
-      <div className="row" style={{ justifyContent: 'flex-start' }}>
+    <div className="card">
+      <h3>Import history</h3>
+      <p className="muted small">Copies conversations with a lead reply since the chosen date from Paladin (full thread + classification). Read-only: nothing is archived, starred or sent.</p>
+      <div className="row left">
         <input type="date" value={since} onChange={(e) => setSince(e.target.value)} />
-        <button disabled={st?.running} onClick={start}>{st?.running ? 'Importing…' : 'Import'}</button>
+        <button className="primary" disabled={st?.running} onClick={start}>{st?.running ? 'Importing…' : 'Import'}</button>
       </div>
-      {st && (st.running || st.finishedAt) && <span className="small">{st.done}/{st.total} conversations{st.finishedAt && !st.running ? ' · done' : ''}{st.error ? ` · error: ${st.error}` : ''}</span>}
+      {st && (st.running || st.finishedAt) && <p className="small">{st.done}/{st.total} conversations{st.finishedAt && !st.running ? ' · done' : ''}{st.error ? ` · error: ${st.error}` : ''}</p>}
       {err && <div className="error">{err}</div>}
     </div>
   );
@@ -253,23 +296,21 @@ function Settings() {
   const [err, setErr] = useState('');
   useEffect(() => { api.settings().then(setS).catch((e) => setErr(e.message)); }, []);
   const set = async (key, value) => {
-    if (key === 'ai_autoreply_enabled' && value && !confirm('Turn ON auto-reply? Ready-made replies will be texted to leads without human review.')) return;
+    if (key === 'ai_autoreply_enabled' && value && !window.confirm('Turn ON auto-reply? Ready-made replies will be texted to leads without human review.')) return;
     try { setS(await api.saveSettings({ [key]: value })); setErr(''); } catch (e) { setErr(e.message); }
   };
-  if (!s) return <div className="muted">{err || 'Loading…'}</div>;
+  if (!s) return <div className="page muted">{err || 'Loading…'}</div>;
   return (
-    <div className="settings">
-      <h3>Settings</h3>
+    <div className="page">
+      <h2>Settings</h2>
       {err && <div className="error">{err}</div>}
-      <label className="switch">
-        <input type="checkbox" checked={s.automation_enabled} onChange={(e) => set('automation_enabled', e.target.checked)} />
-        <span><strong>Automation</strong><br /><span className="muted small">When off, inbound messages are only recorded: no classification, star/archive, Slack alert or AI reply.</span></span>
-      </label>
+      <div className="card">
+        <Switch title="Automation" checked={s.automation_enabled} onChange={(v) => set('automation_enabled', v)}
+          desc="Classifies replies, archives dead ends, stars interested leads and sends them to Chrysete. When off, new messages are only recorded." />
+        <Switch title="Auto-reply" checked={s.ai_autoreply_enabled} disabled={!s.automation_enabled} onChange={(v) => set('ai_autoreply_enabled', v)}
+          desc="Sends the approved reply texts automatically (once per contact every 10 min). Custom drafts are never sent automatically." />
+      </div>
       <ImportBox />
-      <label className="switch">
-        <input type="checkbox" checked={s.ai_autoreply_enabled} disabled={!s.automation_enabled} onChange={(e) => set('ai_autoreply_enabled', e.target.checked)} />
-        <span><strong>Auto-reply (ready-made texts)</strong><br /><span className="muted small">Sends the playbook replies (positive, details, in-person) automatically, at most once per 10 minutes per contact. Custom drafts are never sent automatically.</span></span>
-      </label>
     </div>
   );
 }

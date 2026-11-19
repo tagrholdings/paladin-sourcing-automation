@@ -153,6 +153,7 @@ async function forwardToChrysete({ contact, urgent }) {
     const routing = await resolveRouting(contact);
     const tagMap = await getTagNameMap().catch(() => null);
     await postDm(buildLeadCard({ contact: contact.raw, advisor: ownerLabel(routing), tagMap, urgent }));
+    await store.markSentAsLead(contact.contactId, ownerLabel(routing));
   } catch (err) {
     console.error('[webhook] Falha ao enviar lead para a Chrysete:', err.message);
     notifyError(`Could not forward lead ${contact.contactId} to Chrysete — forward it manually`, err);
