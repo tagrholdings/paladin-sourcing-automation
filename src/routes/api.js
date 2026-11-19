@@ -106,6 +106,44 @@ async function setFlag(req, res, flag) {
   await store.setFlags(contactId, { [col]: result });
   res.json({ [col]: result });
 }
+// ---------- Send as lead (card para a Chrysete por DM, igual ao botao do Slack) ----------
+const { buildLeadCard } = require('../services/leadCard');
+const { postDm, isLeadForwardingConfigured } = require('../services/slackDm');
+const { getTagNameMap } = require('../services/paladinApiClient');
+const { routeLead } = require('../services/routingMatrix');
+const { resolveLocation } = require('../services/contactLookup');
+const ALL_ADVISORS = ['Craig Gibowicz', 'Rob Brian', 'David Haynes', 'Mark Soelberg', 'Marc Schubert', 'Luke Kapper'];
+
+// Sugestao de advisor para o dialogo do painel (nao avanca o rodizio do Arizona).
+router.get('/conversations/:id/lead-options', wrap(async (req, res) => {
+  const contact = await findContactById(req.params.id);
+  if (!contact) return res.status(404).json({ error: 'not_found', message: 'Contact not found in recent Paladin conversations.' });
+  const { state, city } = resolveLocation(contact);
+  const routing = state
+    ? await routeLead({ stateCode: state, city, zip: contact.address, peek: true })
+    : { advisors: [], confidence: 'unresolved', note: 'No state on file for this contact. Pick the advisor manually.' };
+  res.json({ advisors: routing.advisors, allAdvisors: ALL_ADVISORS, note: routing.note, confidence: routing.confidence, configured: isLeadForwardingConfigured() });
+}));
+
+router.post('/conversations/:id/send-as-lead', wrap(async (req, res) => {
+  if (!isLeadForwardingConfigured()) {
+    return res.status(503).json({ error: 'not_configured', message: 'SLACK_DM_TOKEN / LEAD_RECIPIENT_SLACK_ID are not set on the server.' });
+  }
+  const advisor = String(req.body?.advisor || '').trim().slice(0, 120);
+  if (!advisor) return res.status(400).json({ error: 'advisor_required', message: 'Pick an advisor.' });
+  const contact = await findContactById(req.params.id);
+  if (!contact) return res.status(404).json({ error: 'not_found', message: 'Contact not found in recent Paladin conversations.' });
+  const tagMap = await getTagNameMap().catch(() => null);
+  await postDm(buildLeadCard({ contact, advisor, tagMap, urgent: Boolean(req.body?.urgent), sentBy: 'panel' }));
+  await store.markSentAsLead(req.params.id, advisor);
+  // Arizona: se foi escolhido alguem do rodizio, avanca o contador.
+  const { state, city } = resolveLocation(contact);
+  if (state === 'AZ' && ['David Haynes', 'Mark Soelberg'].includes(advisor)) {
+    await routeLead({ stateCode: 'AZ', city }).catch(() => {});
+  }
+  res.json({ ok: true });
+}));
+
 // Marcar/desmarcar manualmente como "sent as lead" (so a tag no painel; nao envia nada)
 router.post('/conversations/:id/sent-as-lead', wrap(async (req, res) => {
   await store.markSentAsLead(req.params.id, req.body?.to || 'manual', Boolean(req.body?.value));

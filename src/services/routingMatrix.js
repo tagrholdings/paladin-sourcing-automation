@@ -102,13 +102,14 @@ const db = require('../db');
 const COUNTER_FILE = path.join(__dirname, '..', '..', 'data', 'az-rotation-counter.json');
 
 // Fallback local (sem DATABASE_URL): arquivo JSON, como antes.
-function nextIndexFromFile() {
+function nextIndexFromFile(peek = false) {
   let idx = 0;
   try {
     idx = JSON.parse(fs.readFileSync(COUNTER_FILE, 'utf8')).index || 0;
   } catch {
     idx = 0;
   }
+  if (peek) return idx;
   fs.mkdirSync(path.dirname(COUNTER_FILE), { recursive: true });
   fs.writeFileSync(COUNTER_FILE, JSON.stringify({ index: idx + 1 }), 'utf8');
   return idx;
@@ -118,9 +119,14 @@ function nextIndexFromFile() {
  * Pega o indice atual do rodizio e incrementa, de forma atomica, no
  * Postgres (tabela settings, chave az_rotation_index). Sobrevive a deploys.
  */
-async function nextIndex() {
-  if (!db.enabled()) return nextIndexFromFile();
+async function nextIndex(peek = false) {
+  if (!db.enabled()) return nextIndexFromFile(peek);
   try {
+    if (peek) {
+      // So consulta (nao avanca o rodizio): usado para sugerir advisor no painel.
+      const cur = await db.query(`SELECT value::int AS v FROM settings WHERE key='az_rotation_index'`);
+      return cur.rowCount ? cur.rows[0].v : 0;
+    }
     const r = await db.query(
       `INSERT INTO settings (key, value) VALUES ('az_rotation_index', '1')
        ON CONFLICT (key) DO UPDATE SET value = (settings.value::int + 1)::text
@@ -129,7 +135,7 @@ async function nextIndex() {
     return r.rows[0].next - 1; // indice usado nesta chamada
   } catch (err) {
     console.error('[routing] Contador do AZ no banco falhou, usando arquivo:', err.message);
-    return nextIndexFromFile();
+    return nextIndexFromFile(peek);
   }
 }
 
@@ -138,9 +144,9 @@ async function nextIndex() {
  * backup (nunca entra pelo rodizio automatico, so se os dois nao
  * tiverem capacidade — isso exige confirmacao humana).
  */
-async function nextArizonaRotation() {
+async function nextArizonaRotation(peek = false) {
   const sequence = ['David Haynes', 'David Haynes', 'Mark Soelberg'];
-  return sequence[(await nextIndex()) % sequence.length];
+  return sequence[(await nextIndex(peek)) % sequence.length];
 }
 
 // --- California: Norte x Sul, dividida "no meio" do estado (definido por
@@ -201,7 +207,7 @@ function routeCalifornia(city, zip) {
  * @param {boolean} [params.isLargeOrMultiPractice] - sinalizado por humano ou heuristica externa
  * @returns {{advisors: string[], confidence: 'explicit'|'inferred'|'unresolved', note: string}}
  */
-async function routeLead({ stateCode, city, zip, isLargeOrMultiPractice = false }) {
+async function routeLead({ stateCode, city, zip, isLargeOrMultiPractice = false, peek = false }) {
   if (!stateCode) {
     return {
       advisors: [],
@@ -259,7 +265,7 @@ async function routeLead({ stateCode, city, zip, isLargeOrMultiPractice = false 
         note: `Arizona with no city provided — cannot confirm whether it is Tucson/Southern AZ. ${ARIZONA_TUCSON_SOUTHERN_NOTE}`,
       };
     }
-    const nextAdvisor = await nextArizonaRotation();
+    const nextAdvisor = await nextArizonaRotation(peek);
     return {
       advisors: [nextAdvisor, 'Marc Schubert'],
       confidence: 'explicit',

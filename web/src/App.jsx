@@ -137,6 +137,7 @@ function Thread({ id, onChanged, onBack }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [leadOpen, setLeadOpen] = useState(false);
 
   const load = useCallback(() => api.conversation(id).then(setData).catch((e) => setErr(e.message)), [id]);
   useEffect(() => { setData(null); setText(''); setErr(''); load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
@@ -168,9 +169,10 @@ function Thread({ id, onChanged, onBack }) {
         <div className="acts">
           <button disabled={busy} onClick={() => act(() => api.star(id, !c.starred))}>{c.starred ? '★' : '☆'}<span className="desk-only"> {c.starred ? 'Starred' : 'Star'}</span></button>
           <button disabled={busy} onClick={() => act(() => api.archive(id, !c.archived))}>{c.archived ? 'Unarchive' : 'Archive'}</button>
-          <button disabled={busy} title="Only changes the tag in this panel" onClick={() => act(() => api.sentAsLead(id, !c.sent_as_lead_at))}>
-            {c.sent_as_lead_at ? 'Unmark lead' : 'Mark as lead'}
-          </button>
+          <button className="primary" disabled={busy} onClick={() => setLeadOpen(true)}>Send as lead</button>
+          {c.sent_as_lead_at && (
+            <button className="ghost" disabled={busy} title="Removes the tag in this panel only" onClick={() => act(() => api.sentAsLead(id, false))}>Unmark</button>
+          )}
         </div>
       </div>
 
@@ -198,6 +200,58 @@ function Thread({ id, onChanged, onBack }) {
       <div className="compose">
         <textarea rows={2} placeholder="Write a reply…" value={text} onChange={(e) => setText(e.target.value)} />
         <button className="primary" disabled={busy || !text.trim()} onClick={send}>Send</button>
+      </div>
+      {leadOpen && <LeadDialog conversation={c} onClose={() => setLeadOpen(false)} onSent={() => { setLeadOpen(false); load(); onChanged(); }} />}
+    </div>
+  );
+}
+
+/** Envia o card da lead para a Chrysete por DM no Slack (mesma coisa do botao do Slack). */
+function LeadDialog({ conversation: c, onClose, onSent }) {
+  const [opts, setOpts] = useState(null);
+  const [advisor, setAdvisor] = useState('');
+  const [urgent, setUrgent] = useState(c.category === 'in_person');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    api.leadOptions(c.contact_id)
+      .then((o) => { setOpts(o); if (o.advisors.length === 1) setAdvisor(o.advisors[0]); })
+      .catch((e) => setErr(e.message));
+  }, [c.contact_id]);
+
+  const send = async () => {
+    setBusy(true); setErr('');
+    try { await api.sendAsLead(c.contact_id, advisor, urgent); onSent(); }
+    catch (e) { setErr(e.message); setBusy(false); }
+  };
+  const others = opts ? opts.allAdvisors.filter((a) => !opts.advisors.includes(a)) : [];
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <h3>Send as lead to Chrysete</h3>
+        <p className="muted small">Posts the lead card (contact info + full conversation) to Chrysete on Slack.</p>
+        {c.sent_as_lead_at && <p className="warn small">Already sent{c.sent_as_lead_to ? ` to ${c.sent_as_lead_to}` : ''} on {fmt(c.sent_as_lead_at)}. Sending again will post a second card.</p>}
+        {!opts && !err && <p className="muted">Loading…</p>}
+        {opts && (
+          <>
+            <p className="small muted">{opts.note}</p>
+            <label className="field">Advisor
+              <select value={advisor} onChange={(e) => setAdvisor(e.target.value)}>
+                <option value="">Choose…</option>
+                {opts.advisors.length > 0 && <optgroup label="Suggested">{opts.advisors.map((a) => <option key={a}>{a}</option>)}</optgroup>}
+                <optgroup label="Others">{others.map((a) => <option key={a}>{a}</option>)}</optgroup>
+              </select>
+            </label>
+            <label className="check"><input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} /> Urgent: wants to meet in person</label>
+          </>
+        )}
+        {err && <div className="error">{err}</div>}
+        <div className="row dialog-actions">
+          <button onClick={onClose}>Cancel</button>
+          <button className="primary" disabled={busy || !advisor} onClick={send}>{busy ? 'Sending…' : 'Send'}</button>
+        </div>
       </div>
     </div>
   );
