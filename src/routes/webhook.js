@@ -230,7 +230,8 @@ async function processInboundMessage(data) {
 
   // Auto-star: positivas e quem quer encontro presencial (mesma regra de
   // toggle: so se ainda nao estiver starred).
-  const wantsStar = classification.category === 'positive' || classification.category === 'in_person';
+  // (inclui "details" com interesse explicito, ex.: "Sure, what do you see in the market?")
+  const wantsStar = classification.interested === true;
   if (wantsStar && contact.starred === false) {
     if (await safeToggleStarred(contactId)) await store.setFlags(contactId, { starred: true });
   }

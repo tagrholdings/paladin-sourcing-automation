@@ -134,7 +134,7 @@ function buildLeadCard({ contact, advisor, sentBy, tagMap, urgent = false }) {
   const addrState = (real(contact.streetAddress) || '').match(/\b([A-Za-z]{2})$/);
   const locationWarning =
     addrState && contact.state && addrState[1].toUpperCase() !== String(contact.state).trim().toUpperCase()
-      ? `⚠️ *Check location:* CRM says ${escapeSlack(location)}, but the practice address says ${escapeSlack(real(contact.streetAddress))}. Confirm before routing.`
+      ? `⚠️ *Check location:* CRM says ${escapeSlack(location)}, but the practice address says ${escapeSlack(real(contact.streetAddress))}. Routed by the practice address; confirm if it looks wrong.`
       : null;
 
   const messages = chronological(contact);

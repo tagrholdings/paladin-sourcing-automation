@@ -30,6 +30,15 @@ const US_STATE_CODES = new Set((
  * ficava "unresolved" mesmo com a localizacao conhecida.
  */
 function resolveLocation(contact) {
+  // O Paladin guarda a cidade/estado da PRATICA em "streetAddress" (campos
+  // deslocados) e o city/state do CRM parece vir do codigo de area do telefone.
+  // Se streetAddress termina com sigla de estado valida (ex.: "Naperville IL"),
+  // ela manda (definido pelo Matheus em 18/11/2026); senao usa city/state do CRM.
+  const sa = String(contact.streetAddress || '').trim();
+  const m = sa.match(/^(.*?)[,\s]+([A-Za-z]{2})$/);
+  if (m && US_STATE_CODES.has(m[2].toUpperCase())) {
+    return { city: m[1].trim() || null, state: m[2].toUpperCase() };
+  }
   let state = contact.state ? String(contact.state).trim().toUpperCase() : null;
   let city = contact.city ? String(contact.city).trim() : null;
   if (state && !US_STATE_CODES.has(state)) state = null;

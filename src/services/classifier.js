@@ -45,8 +45,10 @@ For "details" also choose reply_option:
 - "custom": none of the above fits (e.g. asks about price or the market). Then write custom_reply: a SHORT answer in American English that answers the question ONLY if the answer is generally known and safe (never invent numbers, buyer names or promises), ending by proposing a phone call (for example "We'll reach out after patient hours?"). If you cannot answer anything useful, use a short reply that just proposes the call.
 For every other category reply_option and custom_reply must be null.
 
+Also set "interested": true when the lead shows agreement or interest AND also asks details (e.g. "Sure, what do you see in the market?", "Yes, how much do you pay?"). It is false for neutral questions ("Who is this?", "Which practice?") and for every other category except "positive" and "in_person", where it is true.
+
 Respond ONLY with JSON in this format:
-{"category": "positive" | "in_person" | "details" | "silent" | "attention", "reasoning": "one short sentence in English explaining why", "reply_option": 1 | 2 | 3 | "custom" | null, "custom_reply": "string or null"}`;
+{"category": "positive" | "in_person" | "details" | "silent" | "attention", "reasoning": "one short sentence in English explaining why", "reply_option": 1 | 2 | 3 | "custom" | null, "custom_reply": "string or null", "interested": true | false}`;
 
 /**
  * Converte a decisao do modelo no texto final. Os textos "prontos" saem de
@@ -118,6 +120,7 @@ async function classifyMessage({ leadText, priorContext }) {
   return {
     category: parsed.category,
     reasoning: parsed.reasoning || '',
+    interested: parsed.category === 'positive' || parsed.category === 'in_person' || Boolean(parsed.interested),
     ...buildReply(parsed.category, parsed.reply_option, parsed.custom_reply),
   };
 }
